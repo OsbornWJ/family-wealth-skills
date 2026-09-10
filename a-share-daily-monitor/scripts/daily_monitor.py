@@ -232,7 +232,7 @@ def check_triggers(etf_data, stock_data, market_data, flow_data, external):
     alerts = []
 
     # --- 进攻型：移动止盈 ---
-    for code in ['515980', '512760']:
+    for code in [c for c in ETF_CODES if ETF_TYPE.get(c) == '进攻' or c in PEAK_NAV]:
         d = etf_data.get(code, {})
         if 'error' in d:
             continue
@@ -352,7 +352,7 @@ def format_report(market, etf_data, flow_data, stock_data, external, alerts, tri
     lines.append(f"  {'标的':<16} {'净值':>7} {'日涨跌':>7} {'偏离5MA':>8} {'偏离20MA':>8} {'偏离120MA':>8} {'回撤峰值':>8} {'成本盈亏':>8} {'信号':>4}")
     lines.append("  " + "-" * 83)
 
-    for code in ['515980', '512760', '589720', '562060', '512660']:
+    for code in list(ETF_CODES):
         d = etf_data.get(code, {})
         if 'error' in d:
             lines.append(f"  {ETF_NAMES[code]:<16} ⚠️ 数据获取失败")
@@ -371,11 +371,14 @@ def format_report(market, etf_data, flow_data, stock_data, external, alerts, tri
 
         cost_pnl = f"{d.get('成本盈亏_pct', 0):+.1f}%" if d.get('成本盈亏_pct') is not None else 'N/A'
 
+        if not d.get('名称') and not d.get('单位净值'):
+            lines.append(f"  {ETF_NAMES.get(code, code):<16} ⚠️ 数据不完整")
+            continue
         lines.append(
-            f"  {d['名称']:<16} {d['单位净值']:>7.4f} {d['日涨跌幅']:>+6.2f}% "
-            f"{d['偏离MA5_pct']:>+7.2f}% {d['偏离MA20_pct']:>+7.2f}% "
+            f"  {d.get('名称', ETF_NAMES.get(code, code)):<16} {d.get('单位净值', 0):>7.4f} {d.get('日涨跌幅', 0):>+6.2f}% "
+            f"{d.get('偏离MA5_pct', 0):>+7.2f}% {d.get('偏离MA20_pct', 0):>+7.2f}% "
             f"{d.get('偏离MA120_pct', 0):>+7.2f}% "
-            f"{d['距峰值回撤_pct']:>+7.1f}% {cost_pnl:>8} {sig_str:<10}"
+            f"{d.get('距峰值回撤_pct', 0):>+7.1f}% {cost_pnl:>8} {sig_str:<10}"
         )
 
     # 建设银行

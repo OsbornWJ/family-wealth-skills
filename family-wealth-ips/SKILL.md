@@ -65,7 +65,7 @@ metadata:
 
 ## 家里的默认规矩（数字在 assets 里改）
 
-具体数字以 [`assets/ips.local.md`](assets/ips.local.md) 为准；没填就用下面默认：
+具体数字以 [`assets/ips.example.md`](assets/ips.example.md)（复制为 `ips.local.md` 后填写） 为准；没填就用下面默认：
 
 | 规矩 | 默认 | 人话 |
 |:---|:---:|:---|

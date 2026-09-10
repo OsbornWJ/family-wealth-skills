@@ -196,7 +196,7 @@ def check_morning_alerts(etf_quotes, stock_quote, index_data, opening):
         if gap >= 1.5 and intra <= -1:
             alerts.append({
                 'level': '🟡',
-                '标的': f'{ETF_NAMES[code]}({code})',
+                '标的': f'{ETF_NAMES.get(code, code)}({code})',
                 '内容': f'高开{gap:+.1f}%后低走{intra:+.1f}%，警惕获利盘出逃',
                 '动作': '观察午后能否收复，若持续走弱尾盘考虑减仓',
             })
@@ -210,7 +210,7 @@ def check_morning_alerts(etf_quotes, stock_quote, index_data, opening):
         if gap <= -1.5 and intra >= 1:
             alerts.append({
                 'level': '🟢',
-                '标的': f'{ETF_NAMES[code]}({code})',
+                '标的': f'{ETF_NAMES.get(code, code)}({code})',
                 '内容': f'低开{gap:+.1f}%后走高{intra:+.1f}%，抄底资金进场',
                 '动作': '正向信号，继续持有观察',
             })
@@ -225,14 +225,14 @@ def check_morning_alerts(etf_quotes, stock_quote, index_data, opening):
         if change >= 5:
             alerts.append({
                 'level': '🟢',
-                '标的': f'{ETF_NAMES[code]}({code})',
+                '标的': f'{ETF_NAMES.get(code, code)}({code})',
                 '内容': f'+{change}%，早盘强势拉升',
                 '动作': '关注是否放量，午后可能继续冲高',
             })
         elif change <= -4:
             alerts.append({
                 'level': '🔴',
-                '标的': f'{ETF_NAMES[code]}({code})',
+                '标的': f'{ETF_NAMES.get(code, code)}({code})',
                 '内容': f'{change}%，早盘急跌',
                 '动作': '检查是否有板块利空，考虑是否减仓',
             })
@@ -314,18 +314,18 @@ def format_report(index_data, etf_quotes, stock_quote, opening, alerts, north_fl
     lines.append(f"  {'标的':<16} {'现价':>7} {'涨跌':>7} {'开盘':>6} {'日内方向':>8} {'振幅':>6} {'成交额':>8}")
     lines.append("  " + "-" * 70)
 
-    for code in ['515980', '512760', '589720', '562060', '512660']:
+    for code in list(ETF_SINA_MAP.keys()):
         q = etf_quotes.get(code) or {}
         o = opening.get(code) or {}
         if 'error' in q:
-            lines.append(f"  {ETF_NAMES[code]:<16} ⚠️ 获取失败")
+            lines.append(f"  {ETF_NAMES.get(code, code):<16} ⚠️ 获取失败")
             continue
         price = q.get('现价', 0)
         prev = q.get('昨收', 0)
         change = round((price / prev - 1) * 100, 2) if prev > 0 else 0
         vol = q.get('成交额_万', 0) / 10000  # 亿
         lines.append(
-            f"  {ETF_NAMES[code]:<16} {price:>7.4f} {change:>+6.2f}% "
+            f"  {ETF_NAMES.get(code, code):<16} {price:>7.4f} {change:>+6.2f}% "
             f"{o.get('开盘', '--'):>6} {o.get('日内方向', '--'):>8} "
             f"{o.get('振幅%', 0):>5.1f}% {vol:>7.2f}亿"
         )
@@ -334,12 +334,12 @@ def format_report(index_data, etf_quotes, stock_quote, opening, alerts, north_fl
     if stock_quote and 'error' not in stock_quote:
         s = stock_quote
         change = round((s['现价'] / s['昨收'] - 1) * 100, 2) if s.get('昨收', 0) > 0 else 0
-        cost_pnl = round((s['现价'] / STOCK_COST['601939'] - 1) * 100, 2)
+        cost_pnl = round((s['现价'] / STOCK_COST.get('601939') or list(STOCK_COST.values())[0] if STOCK_COST else 1 - 1) * 100, 2)
         lines.append(f"  建设银行            {s['现价']:>7.2f} {change:>+6.2f}% {'--':>6} {'--':>8} {'--':>6} {'--':>8} 成本盈亏{cost_pnl:+.1f}%")
 
     # 三、开盘形态分析
     lines.append("\n三、开盘形态解读")
-    for code in ['515980', '512760', '589720', '562060', '512660']:
+    for code in list(ETF_SINA_MAP.keys()):
         o = opening.get(code) or {}
         if not o:
             continue

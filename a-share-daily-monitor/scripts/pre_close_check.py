@@ -103,7 +103,7 @@ def check_alerts(etf_quotes, stock_quote, index_data):
     alerts = []
 
     # --- 进攻型移动止盈检查 ---
-    for code in ['515980', '512760']:
+    for code in [c for c in ETF_SINA_MAP if ETF_TYPE.get(c) == '进攻' or c in PEAK_PRICE]:
         q = etf_quotes.get(code) or {}
         if 'error' in q:
             continue
@@ -114,14 +114,14 @@ def check_alerts(etf_quotes, stock_quote, index_data):
             if drawdown >= 12:
                 alerts.append({
                     'level': '🔴',
-                    '标的': f'{ETF_NAMES[code]}({code})',
+                    '标的': f'{ETF_NAMES.get(code, code)}({code})',
                     '内容': f'回撤{drawdown}%，逼近15%止盈线！现价{price}，峰值{peak}',
                     '动作': '如14:55前未回升，收盘前执行减仓1/2',
                 })
             elif drawdown >= 8:
                 alerts.append({
                     'level': '🟡',
-                    '标的': f'{ETF_NAMES[code]}({code})',
+                    '标的': f'{ETF_NAMES.get(code, code)}({code})',
                     '内容': f'回撤{drawdown}%，注意观察',
                     '动作': '继续监控，暂不操作',
                 })
@@ -159,7 +159,7 @@ def check_alerts(etf_quotes, stock_quote, index_data):
         if change <= -5:
             alerts.append({
                 'level': '🔴',
-                '标的': f'{ETF_NAMES[code]}({code})',
+                '标的': f'{ETF_NAMES.get(code, code)}({code})',
                 '内容': f'单日暴跌{change}%',
                 '动作': '检查是否有突发利空，考虑尾盘减仓',
             })
@@ -188,10 +188,10 @@ def format_report(index_data, etf_quotes, stock_quote, alerts):
     lines.append(f"  {'标的':<16} {'现价':>7} {'涨跌':>7} {'距峰值':>8} {'状态':>6}")
     lines.append("  " + "-" * 50)
 
-    for code in ['515980', '512760', '589720', '562060', '512660']:
+    for code in list(ETF_SINA_MAP.keys()):
         q = etf_quotes.get(code) or {}
         if 'error' in q:
-            lines.append(f"  {ETF_NAMES[code]:<16} ⚠️ 获取失败")
+            lines.append(f"  {ETF_NAMES.get(code, code):<16} ⚠️ 获取失败")
             continue
         price = q.get('现价', 0)
         prev = q.get('昨收', 0)
@@ -211,7 +211,7 @@ def format_report(index_data, etf_quotes, stock_quote, alerts):
         else:
             status = '➡️平稳'
 
-        lines.append(f"  {ETF_NAMES[code]:<16} {price:>7.4f} {change:>+6.2f}% {peak_str:>8} {status:>6}")
+        lines.append(f"  {ETF_NAMES.get(code, code):<16} {price:>7.4f} {change:>+6.2f}% {peak_str:>8} {status:>6}")
 
     # 建设银行
     if stock_quote and 'error' not in stock_quote:
