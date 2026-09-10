@@ -2,6 +2,8 @@
 
 For investors who primarily use **China A-shares / CNY** and AgentSkills-capable clients.
 
+**Scope:** This repo is Agent workflows and scripts — **no Web dashboard / HTML UI**. Ask the agent for Markdown tables (IPS, balance sheet, P&amp;L), or wire your own tools to `*.local.*`.
+
 ## Setup
 
 ```bash
