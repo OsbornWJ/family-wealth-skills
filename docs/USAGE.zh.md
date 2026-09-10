@@ -73,7 +73,14 @@ Hermes / OpenClaw：把 `~/.family-wealth-skills` 下各 skill 目录链到对�
 
 Agent 输出里应出现白话一行：`能不能买: 可以 / 先少买点 / 先别买`。「先别买」时不要给下单指令。
 
-虚构完整对话：[examples/demo-conversation.zh.md](../examples/demo-conversation.zh.md)
+虚构完整对话：[examples/demo-conversation.zh.md](../examples/demo-conversation.zh.md)  
+**真实脚本实跑**（2026-09-10 示例组合）：[examples/scenario-monitor-2026-09-10.zh.md](../examples/scenario-monitor-2026-09-10.zh.md)
+
+重新抓取报告（会写到 `examples/_raw/`，勿提交含本机路径的原文）：
+
+```bash
+bash scripts/capture_example_run.sh
+```
 
 ## 5. 日常监控命令
 

@@ -574,10 +574,23 @@ def format_report(market, etf_data, flow_data, stock_data, external, alerts, tri
 
     # 五、外部变量
     lines.append("\n五、外部变量")
-    if 'error' not in external:
-        lines.append(f"  美10年期国债: {external['美10年期国债']:.2f}%")
-        lines.append(f"  中10年期国债: {external['中10年期国债']:.2f}%")
-        lines.append(f"  中美利差: {external['中美利差_bp']:.1f}bp")
+    if "error" not in external:
+        def _fmt(v, digits=2):
+            try:
+                import math
+                x = float(v)
+                if math.isnan(x):
+                    return "N/A"
+                return f"{x:.{digits}f}"
+            except (TypeError, ValueError):
+                return "N/A"
+
+        us = external.get("美10年期国债")
+        cn = external.get("中10年期国债")
+        spread = external.get("中美利差_bp")
+        lines.append(f"  美10年期国债: {_fmt(us)}%")
+        lines.append(f"  中10年期国债: {_fmt(cn)}%")
+        lines.append(f"  中美利差: {_fmt(spread, 1)}bp")
         lines.append(f"  数据日期: {external.get('数据日期', 'N/A')}")
     else:
         lines.append(f"  ⚠️ {external.get('error', '数据不可用')}")
