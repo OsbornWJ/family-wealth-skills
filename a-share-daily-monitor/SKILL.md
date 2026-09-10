@@ -13,7 +13,7 @@ metadata:
 
 # A股每日监控
 
-**定位：** 交易弹药层的执行与监控。配置建议、动用家庭固定资本/配偶本金、提高权益占比 → 必须先过 `family-wealth-ips` 闸门（输出 `IPS闸门: 绿/黄/红`）。闸门红灯时只出监控数据，**不下单指令**。
+**定位：** 交易弹药层的执行与监控。配置建议、动用家庭固定资本/配偶本金、提高权益占比 → 必须先用 `family-wealth-ips` 问清楚能不能买（输出「可以/先少买点/先别买」）。先别买时只出监控数据，**不下单指令**。
 
 四节点监控管线（交易日）。OpenClaw 用 `{baseDir}`；其它运行时用本 skill 目录绝对路径。
 | 时间 | 节点 | 脚本 | 聚焦 |
@@ -38,7 +38,7 @@ python3 scripts/daily_monitor.py
 
 ## 响应铁律
 
-0. **IPS 前置（涉及操作时）**：标明钱池=交易弹药（默认）；若用户指向家庭/配偶钱 → 停，转 `family-wealth-ips`。授权执行**不能**绕过家庭固定资本禁投。加仓后须自检进攻占比 ≤ IPS 上限（见 `family-wealth-ips/assets/ips.local.md`）。
+0. **买卖前先问清（涉及操作时）**：标明钱池=交易弹药（默认）；若用户指向家庭/配偶钱 → 停，转 `family-wealth-ips`。授权执行**不能**绕过家庭固定资本禁投。加仓后须自检股票类占比不超过约定上限（见 `family-wealth-ips/assets/ips.local.md`）。
 1. **报告直接贴在对话里**，禁止只说「报告已生成」。
 2. 「早盘分析」→ 直接跑 `morning_check.py` 输出，不改 cwd、不绕到其它项目。
 3. 「盘中分析」→ 合并 `morning_check.py` + `pre_close_check.py` 输出。
@@ -86,7 +86,7 @@ python3 scripts/daily_monitor.py
 
 ## 相关技能
 
-- `family-wealth-ips` — 家庭 IPS 总闸门（操作建议前必过）
+- `family-wealth-ips` — 家庭理财约定（买卖前先问清能不能买）
 - `personal-financial-tracker` — 家庭资产负债表 / 应急金
 - `a-share-stock-fundamental-analysis` — 个股研究
 - `a-share-dividend-allocation` — 收息层配置

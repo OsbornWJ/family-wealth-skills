@@ -16,11 +16,12 @@ Start a **new** agent session afterward. Edit `*.local.*` under that folder when
 
 ## How to talk to the agent
 
-1. Run the **IPS gate** (`family-wealth-ips`) before any buy/sell advice.  
-2. Refresh the **balance sheet** when discussing net worth or risk %.  
-3. Route execution: bond / dividend / daily-monitor skills.
+1. **Ask before buying** (`family-wealth-ips`): which money, emergency cash, is stock too heavy?  
+2. Refresh the **balance sheet** when discussing net worth.  
+3. Then route: bond / dividend / daily-monitor.
 
-Expect a line like `IPS闸门: 绿|黄|红` (green / yellow / red). Red = no order instructions.
+Expect a plain line like `能不能买: 可以 / 先少买点 / 先别买`. “先别买” = no order instructions.
+
 
 Fictional walkthrough (Chinese): [examples/demo-conversation.zh.md](../examples/demo-conversation.zh.md).
 

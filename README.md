@@ -17,11 +17,11 @@ This is a **sanitized public export** — no live portfolios, session diaries, o
 | 是 | 不是 |
 |----|------|
 | 给 AI Agent 用的流程与脚本（[AgentSkills](https://agentskills.io)） | 持牌投顾、荐股软件 |
-| 家庭 IPS 闸门 + 资产负债表模板 | 保证收益或代客理财 |
+| 家庭理财约定（出手前先问清楚）+ 家底表模板 | 保证收益或代客理财 |
 | A 股监控 / 收息 / 固收 **执行助手**（需你自己填本地配置） | 全球多市场一体化交易系统 |
-| 对话里用 Markdown 表看资产盘 / 闸门结果 | **Web 看板 / HTML 仪表盘**（本仓库不提供） |
+| 对话里用表格看家底 /「能不能买」结论 | **Web 看板 / HTML 仪表盘**（本仓库不提供） |
 
-资产视图请在对话中让 Agent 按 IPS / 资产负债表输出表格；或自行用 `*.local.*` 对接其它工具。本仓库**故意不做**图形化网页，以保持一条命令安装的 Skill 定位。
+资产视图请在对话中让 Agent 按理财约定 / 家底表输出表格；或自行用 `*.local.*` 对接其它工具。本仓库**故意不做**图形化网页，以保持一条命令安装的 Skill 定位。
 
 ### 谁适合用
 
@@ -42,7 +42,7 @@ curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/
 pip3 install requests pandas akshare baostock   # 要用行情脚本时再装
 ```
 
-**新开一轮对话**，直接说：「按 family-wealth-ips 过闸」。
+**新开一轮对话**，直接说：「按 family-wealth-ips 先问清楚能不能买」。
 
 可选：改 `~/.family-wealth-skills/**/assets/*.local.*` 填自己的钱池/持仓。  
 完整说明：[docs/USAGE.zh.md](docs/USAGE.zh.md) · 演示：[examples/demo-conversation.zh.md](examples/demo-conversation.zh.md)
@@ -51,7 +51,7 @@ pip3 install requests pandas akshare baostock   # 要用行情脚本时再装
 
 | Skill | 用途 |
 |-------|------|
-| `family-wealth-ips` | **总闸门**：钱池 / 应急金 / 风险预算 |
+| `family-wealth-ips` | **出手前先问**：哪笔钱 / 应急金 / 股票会不会买太多 |
 | `personal-financial-tracker` | 家庭资产负债表 |
 | `a-share-daily-monitor` | 早盘/盘中/尾盘/日报 |
 | `a-share-bond-allocation` | 债 / 储蓄国债 / 现金停靠 |
@@ -74,17 +74,17 @@ pip3 install requests pandas akshare baostock   # 要用行情脚本时再装
 | Is | Is not |
 |----|--------|
 | [AgentSkills](https://agentskills.io) workflows + scripts | Licensed financial advice |
-| Family IPS gate + balance-sheet templates | Return guarantee |
+| Family money rules (ask before buying) + balance-sheet templates | Return guarantee |
 | **China A-share** monitor / dividend / bond helpers | Global multi-broker trading suite |
 | Portfolio views as Markdown tables in chat | **Web dashboard / HTML UI** (not shipped) |
 
-Ask the agent for IPS / balance-sheet tables in conversation, or wire your own tools to `*.local.*`. This repo intentionally has **no** graphical web UI.
+Ask the agent for “can I buy?” checks and balance-sheet tables in conversation, or wire your own tools to `*.local.*`. This repo intentionally has **no** graphical web UI.
 
 ### Audience
 
 Users who invest mainly in **China A-shares / CNY fixed income** and run skill-capable agents (Cursor, Claude Code, Hermes, OpenClaw, …).
 
-IPS ideas travel; quote APIs and product rules do **not** auto-work for US/EU accounts.
+The “ask before buying” idea travels; quote APIs and product rules do **not** auto-work for US/EU accounts.
 
 ### Install (one liner)
 

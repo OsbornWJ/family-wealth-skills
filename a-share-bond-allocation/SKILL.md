@@ -13,7 +13,7 @@ metadata:
 
 # A股债券/固收配置
 
-**IPS：** 与 `family-wealth-ips` 钱池表一致。家庭固定资本默认走储蓄国债/短债；本 skill 提供工具细节，总闸门仍在 IPS。
+**IPS：** 与 `family-wealth-ips` 钱池表一致。家庭固定资本默认走储蓄国债/短债；本 skill 提供工具细节，「能不能买」仍由 family-wealth-ips 把关。
 
 ## 触发条件
 用户问：纯债能买吗、债基/固收+影响、债券ETF、储蓄国债/定存、利率怎么看、钱放哪停靠、清仓款买什么。注：管"股息率/红利股"的问题走 `a-share-dividend-allocation`，本技能管"债"。

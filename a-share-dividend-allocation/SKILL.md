@@ -13,7 +13,7 @@ metadata:
 
 # A股收息资产选择与配置
 
-**IPS：** 清仓后现金分配、加大收息层前，先过 `family-wealth-ips`（钱池 + 应急金 + 目标配比）。本 skill 只解决「收息层买什么」。
+**IPS：** 清仓后现金分配、加大收息层前，先问 `family-wealth-ips`（哪笔钱 + 应急金 + 目标配比）。本 skill 只解决「收息层买什么」。
 
 ## When to Use
 

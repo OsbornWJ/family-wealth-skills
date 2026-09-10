@@ -2,7 +2,7 @@
 
 面向：把本仓库当作 **Agent Skill 包** 使用的个人投资者（中国 A 股为主）。
 
-**产品边界：** 本仓库是 Agent 流程与脚本，**不提供 Web 看板 / HTML 仪表盘**。资产盘、闸门结果、持仓盈亏请在对话里用 Markdown 表查看；或自行用 `*.local.*` 对接其它工具。
+**产品边界：** 本仓库是 Agent 流程与脚本，**不提供 Web 看板 / HTML 仪表盘**。家底、「能不能买」结论、持仓盈亏请在对话里用 Markdown 表查看；或自行用 `*.local.*` 对接其它工具。
 
 ## 1. 环境要求
 
@@ -59,17 +59,17 @@ Hermes / OpenClaw：把 `~/.family-wealth-skills` 下各 skill 目录链到对�
 
 监控脚本优先读 `portfolio.local.json`，没有则用 example。
 
-## 4. 推荐对话顺序（规划 → 执行）
+## 4. 推荐对话顺序（先问清 → 再执行）
 
-1. **总闸门** — 「按 family-wealth-ips 检查：这笔钱是哪个钱池？应急金够吗？」
-2. **家底** — 「根据 balance-sheet 算金融净资产和进攻占比」
+1. **能不能买** — 「按 family-wealth-ips：这是哪笔钱？应急金够吗？股票会不会买太多？」
+2. **家底** — 「根据家底表算净资产和股票类大概占多少」
 3. **再分派**  
-   - 家庭固定资本 / 停靠 → `a-share-bond-allocation`  
-   - 收息层 → `a-share-dividend-allocation`  
+   - 家里保本 / 停靠 → `a-share-bond-allocation`  
+   - 收息 → `a-share-dividend-allocation`  
    - 盘中买卖 / 日报 → `a-share-daily-monitor`  
    - 个股研究 → comps / dcf / earnings  
 
-Agent 输出里应出现类似：`IPS闸门: 绿|黄|红`。红灯时不应给下单指令。
+Agent 输出里应出现白话一行：`能不能买: 可以 / 先少买点 / 先别买`。「先别买」时不要给下单指令。
 
 虚构完整对话：[examples/demo-conversation.zh.md](../examples/demo-conversation.zh.md)
 
