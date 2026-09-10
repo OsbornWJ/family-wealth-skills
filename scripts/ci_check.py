@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""CI checks for the public skill pack."""
+from __future__ import annotations
+
+import json
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+FORBIDDEN_NAME_PARTS = (
+    ".local.md",
+    ".local.json",
+    "session-lessons",
+    "user-fund-account",
+    "cost-records.md",
+)
+
+FORBIDDEN_CONTENT = re.compile(
+    r"wenjie\.liao|Osbornjie@|@163\.com|老婆的钱",
+    re.I,
+)
+
+# Real-looking cost literals that should not appear as hardcoded dicts in scripts
+HARDCODED_COST = re.compile(
+    r"COST_PRICE\s*=\s*\{[^}]*0\.\d{3,}",
+    re.S,
+)
+
+
+def main() -> int:
+    errors: list[str] = []
+    files = [p for p in ROOT.rglob("*") if p.is_file()]
+    # skip .git if present
+    files = [p for p in files if ".git" not in p.parts]
+
+    for p in files:
+        rel = str(p.relative_to(ROOT))
+        for part in FORBIDDEN_NAME_PARTS:
+            if part in p.name or part in rel.replace("\\", "/"):
+                # allow mentions in docs
+                if p.suffix in {".md"} and part in (
+                    ".local.md",
+                    ".local.json",
+                    "session-lessons",
+                    "user-fund-account",
+                    "cost-records.md",
+                ):
+                    if p.name in {
+                        "PRIVACY.md",
+                        "CONTRIBUTING.md",
+                        "README.md",
+                        "USAGE.zh.md",
+                        "USAGE.en.md",
+                        "PUBLISHING.md",
+                    } or "docs/" in rel or "examples/" in rel:
+                        continue
+                    if "example" in p.name:
+                        continue
+                if "example" in p.name:
+                    continue
+                if p.suffix == ".md" and any(
+                    x in rel for x in ("PRIVACY", "CONTRIBUTING", "README", "USAGE", "demo-")
+                ):
+                    continue
+                # actual forbidden artifacts
+                if part in p.name:
+                    errors.append(f"forbidden file name: {rel}")
+
+        if p.suffix.lower() not in {".md", ".py", ".json", ".sh", ".yml", ".yaml"}:
+            continue
+        try:
+            text = p.read_text(encoding="utf-8", errors="ignore")
+        except Exception as e:
+            errors.append(f"read fail {rel}: {e}")
+            continue
+
+        if FORBIDDEN_CONTENT.search(text) and "PRIVACY" not in p.name and "ci_check" not in p.name:
+            errors.append(f"forbidden content pattern in {rel}")
+
+        if p.suffix == ".py" and "portfolio_config" not in p.name:
+            if HARDCODED_COST.search(text) and "example" not in text.lower():
+                # allow if loads from portfolio_config nearby
+                if "load_portfolio" not in text and "COST_PRICE = _PF" not in text:
+                    errors.append(f"possible hardcoded COST_PRICE in {rel}")
+
+    # example portfolio must parse
+    example = ROOT / "a-share-daily-monitor" / "assets" / "portfolio.example.json"
+    if not example.exists():
+        errors.append("missing portfolio.example.json")
+    else:
+        try:
+            data = json.loads(example.read_text(encoding="utf-8"))
+            assert "etf" in data and "stocks" in data
+        except Exception as e:
+            errors.append(f"portfolio.example.json invalid: {e}")
+
+    # skill folders need SKILL.md with name+description
+    for d in ROOT.iterdir():
+        if not d.is_dir() or d.name.startswith(".") or d.name in {"docs", "examples", "scripts"}:
+            continue
+        skill = d / "SKILL.md"
+        if not skill.exists():
+            errors.append(f"missing SKILL.md in {d.name}")
+            continue
+        head = skill.read_text(encoding="utf-8", errors="ignore")[:2000]
+        if "name:" not in head or "description:" not in head:
+            errors.append(f"SKILL.md frontmatter incomplete: {d.name}")
+
+    # portfolio_config import smoke (no network)
+    sys.path.insert(0, str(ROOT / "a-share-daily-monitor" / "scripts"))
+    try:
+        from portfolio_config import load_portfolio  # type: ignore
+
+        pf = load_portfolio()
+        if not pf.get("cost_price"):
+            errors.append("load_portfolio returned empty cost_price")
+    except Exception as e:
+        errors.append(f"portfolio_config import failed: {e}")
+
+    if errors:
+        print("CI FAILED:")
+        for e in errors:
+            print(" -", e)
+        return 1
+    print("CI OK")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

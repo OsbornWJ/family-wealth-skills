@@ -1,0 +1,11 @@
+# Never publish personal overlays
+**/*.local.md
+**/*.local.json
+**/portfolio.local.*
+.DS_Store
+__pycache__/
+*.pyc
+.env
+.env.*
+.idea/
+.vscode/

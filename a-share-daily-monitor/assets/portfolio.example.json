@@ -1,0 +1,18 @@
+{
+  "note": "Copy to portfolio.local.json and edit. Used by public monitor scripts.",
+  "etf": {
+    "515980": {"name": "示例-AI ETF", "type": "进攻", "cost": 1.0, "peak": 1.2},
+    "512760": {"name": "示例-芯片ETF", "type": "进攻", "cost": 1.0, "peak": 1.2},
+    "512890": {"name": "示例-红利低波", "type": "防御", "cost": 1.1, "peak": null},
+    "512660": {"name": "示例-军工ETF", "type": "观察", "cost": 1.5, "peak": null}
+  },
+  "stocks": {
+    "601939": {"name": "示例-大行", "cost": 10.0}
+  },
+  "sina_map": {
+    "515980": "sh515980",
+    "512760": "sh512760",
+    "512890": "sh512890",
+    "512660": "sh512660"
+  }
+}
