@@ -5,25 +5,12 @@ For investors who primarily use **China A-shares / CNY** and AgentSkills-capable
 ## Setup
 
 ```bash
-pip3 install requests pandas akshare baostock
-
-SRC="$(pwd)"   # repo root
-mkdir -p "$HOME/.cursor/skills" "$HOME/.claude/skills"
-for d in "$SRC"/*/ ; do
-  [[ -f "$d/SKILL.md" ]] || continue
-  ln -sfn "$d" "$HOME/.cursor/skills/$(basename "$d")"
-  ln -sfn "$d" "$HOME/.claude/skills/$(basename "$d")"
-done
-
-cp family-wealth-ips/assets/ips.example.md family-wealth-ips/assets/ips.local.md
-cp personal-financial-tracker/assets/balance-sheet.example.md \
-   personal-financial-tracker/assets/balance-sheet.local.md
-cp a-share-daily-monitor/assets/portfolio.example.json \
-   a-share-daily-monitor/assets/portfolio.local.json
-# Edit *.local.* — never commit them to a public repo
+curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/install.sh | bash
+pip3 install requests pandas akshare baostock   # only if you need quote scripts
 ```
 
-Start a **new** agent session after linking.
+This clones to `~/.family-wealth-skills` and symlinks into Cursor / Claude Code.  
+Start a **new** agent session afterward. Edit `*.local.*` under that folder when ready (never commit them).
 
 ## How to talk to the agent
 

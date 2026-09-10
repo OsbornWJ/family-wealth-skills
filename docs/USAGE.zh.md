@@ -19,51 +19,43 @@ pip3 install requests pandas akshare baostock
 pip3 install mootdx
 ```
 
-## 2. 安装 Skill
-
-在仓库根目录（本 `public` 包根）执行：
+## 2. 安装 Skill（推荐：一条命令）
 
 ```bash
-SRC="$(pwd)"
-mkdir -p "$HOME/.cursor/skills" "$HOME/.claude/skills"
-for d in "$SRC"/*/ ; do
-  [[ -f "$d/SKILL.md" ]] || continue
-  name=$(basename "$d")
-  ln -sfn "$d" "$HOME/.cursor/skills/$name"
-  ln -sfn "$d" "$HOME/.claude/skills/$name"
-  echo "linked $name"
-done
+curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/install.sh | bash
 ```
 
-Hermes：将本包放到 profile 的 `skills/<category>/` 下，或对各 skill 目录做同样的 symlink。  
-OpenClaw：链到 workspace 的 `skills/`；正文里可用 `{baseDir}` 指 skill 目录。
+脚本会：
 
-**新开一轮对话** 后再试（多数运行时在会话开始时加载 skill 列表）。
+1. 克隆/更新到 `~/.family-wealth-skills`
+2. 自动 symlink 到 `~/.cursor/skills` 与 `~/.claude/skills`
+3. 若还没有 local 配置，从 example 复制一份（不覆盖已有）
 
-## 3. 必做：本地配置（私有）
+**新开一轮对话** 后再用（多数运行时只在会话开始时加载 skill）。
 
-示例文件可以提交；**填了真实数字的 local 文件不要提交**。
+### 手动安装（可选）
+
+若你更想自己 clone：
 
 ```bash
-cp family-wealth-ips/assets/ips.example.md \
-   family-wealth-ips/assets/ips.local.md
-
-cp personal-financial-tracker/assets/balance-sheet.example.md \
-   personal-financial-tracker/assets/balance-sheet.local.md
-
-cp a-share-daily-monitor/assets/portfolio.example.json \
-   a-share-daily-monitor/assets/portfolio.local.json
+git clone https://github.com/OsbornWJ/family-wealth-skills.git ~/.family-wealth-skills
+# 然后对每个含 SKILL.md 的目录 ln -sfn 到 ~/.cursor/skills 与 ~/.claude/skills
+# 或再次运行上面的 install.sh
 ```
 
-请至少填写：
+Hermes / OpenClaw：把 `~/.family-wealth-skills` 下各 skill 目录链到对应 skills 根即可。
+
+## 3. 本地配置（可后补）
+
+安装脚本已生成空白/示例 `*.local.*`。有空再改真实数字即可（**不要推到公开仓库**）：
 
 | 文件 | 填什么 |
 |------|--------|
-| `ips.local.md` | 月支出、各钱池金额、目标配比、禁投约定 |
-| `balance-sheet.local.md` | 现金/固收/权益/负债粗表 |
-| `portfolio.local.json` | 你监控的 ETF/个股代码、成本、峰值（止盈用） |
+| `~/.family-wealth-skills/family-wealth-ips/assets/ips.local.md` | 月支出、钱池、目标配比 |
+| `.../personal-financial-tracker/assets/balance-sheet.local.md` | 资产负债粗表 |
+| `.../a-share-daily-monitor/assets/portfolio.local.json` | 监控标的与成本 |
 
-监控脚本优先读 `portfolio.local.json`，没有则回退 `portfolio.example.json`。
+监控脚本优先读 `portfolio.local.json`，没有则用 example。
 
 ## 4. 推荐对话顺序（规划 → 执行）
 

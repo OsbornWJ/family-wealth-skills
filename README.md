@@ -27,38 +27,22 @@ This is a **sanitized public export** — no live portfolios, session diaries, o
 
 海外用户可借鉴 IPS 与资产负债表；行情脚本与产品规则默认只服务中国市场。
 
-### 五分钟上手
-
-详见完整使用说明：**[docs/USAGE.zh.md](docs/USAGE.zh.md)**。摘要：
+### 安装（一条命令）
 
 ```bash
-git clone <this-repo> && cd family-wealth-skills   # 或进入本 public 目录
-pip3 install requests pandas akshare baostock
-
-# 安装到 Cursor / Claude Code（symlink）
-SRC="$(pwd)"
-mkdir -p ~/.cursor/skills ~/.claude/skills
-for d in "$SRC"/*/ ; do
-  [[ -f "$d/SKILL.md" ]] || continue
-  name=$(basename "$d")
-  ln -sfn "$d" ~/.cursor/skills/$name
-  ln -sfn "$d" ~/.claude/skills/$name
-done
-
-# 本地私有配置（勿提交）
-cp family-wealth-ips/assets/ips.example.md family-wealth-ips/assets/ips.local.md
-cp personal-financial-tracker/assets/balance-sheet.example.md \
-   personal-financial-tracker/assets/balance-sheet.local.md
-cp a-share-daily-monitor/assets/portfolio.example.json \
-   a-share-daily-monitor/assets/portfolio.local.json
-# 编辑上述 *.local.* 填入你的数字
-
-python3 akshare-china-finance/scripts/quote_providers.py
-python3 a-share-daily-monitor/scripts/morning_check.py
+curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/install.sh | bash
 ```
 
-对新开对话说：「先按 family-wealth-ips 过闸，再看收息层怎么配。」  
-虚构演示：[examples/demo-conversation.zh.md](examples/demo-conversation.zh.md)
+会克隆到 `~/.family-wealth-skills`，并自动链到 Cursor / Claude Code。然后：
+
+```bash
+pip3 install requests pandas akshare baostock   # 要用行情脚本时再装
+```
+
+**新开一轮对话**，直接说：「按 family-wealth-ips 过闸」。
+
+可选：改 `~/.family-wealth-skills/**/assets/*.local.*` 填自己的钱池/持仓。  
+完整说明：[docs/USAGE.zh.md](docs/USAGE.zh.md) · 演示：[examples/demo-conversation.zh.md](examples/demo-conversation.zh.md)
 
 ### Skill 地图
 
@@ -96,20 +80,14 @@ Users who invest mainly in **China A-shares / CNY fixed income** and run skill-c
 
 IPS ideas travel; quote APIs and product rules do **not** auto-work for US/EU accounts.
 
-### Quick start
-
-Full guide: **[docs/USAGE.en.md](docs/USAGE.en.md)**.
+### Install (one liner)
 
 ```bash
-pip3 install requests pandas akshare baostock
-# symlink skill dirs into ~/.cursor/skills and ~/.claude/skills
-cp family-wealth-ips/assets/ips.example.md family-wealth-ips/assets/ips.local.md
-cp a-share-daily-monitor/assets/portfolio.example.json \
-   a-share-daily-monitor/assets/portfolio.local.json
-python3 akshare-china-finance/scripts/quote_providers.py
+curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/install.sh | bash
+pip3 install requests pandas akshare baostock   # only if you need quote scripts
 ```
 
-Demo (fictional): [examples/demo-conversation.zh.md](examples/demo-conversation.zh.md) (Chinese; structure is language-agnostic).
+Start a **new** agent chat. Full guide: [docs/USAGE.en.md](docs/USAGE.en.md).
 
 ### Disclaimer
 
