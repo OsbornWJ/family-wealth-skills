@@ -19,6 +19,9 @@ This is a **sanitized public export** — no live portfolios, session diaries, o
 | 给 AI Agent 用的流程与脚本（[AgentSkills](https://agentskills.io)） | 持牌投顾、荐股软件 |
 | 家庭 IPS 闸门 + 资产负债表模板 | 保证收益或代客理财 |
 | A 股监控 / 收息 / 固收 **执行助手**（需你自己填本地配置） | 全球多市场一体化交易系统 |
+| 对话里用 Markdown 表看资产盘 / 闸门结果 | **Web 看板 / HTML 仪表盘**（本仓库不提供） |
+
+资产视图请在对话中让 Agent 按 IPS / 资产负债表输出表格；或自行用 `*.local.*` 对接其它工具。本仓库**故意不做**图形化网页，以保持一条命令安装的 Skill 定位。
 
 ### 谁适合用
 
@@ -73,6 +76,9 @@ pip3 install requests pandas akshare baostock   # 要用行情脚本时再装
 | [AgentSkills](https://agentskills.io) workflows + scripts | Licensed financial advice |
 | Family IPS gate + balance-sheet templates | Return guarantee |
 | **China A-share** monitor / dividend / bond helpers | Global multi-broker trading suite |
+| Portfolio views as Markdown tables in chat | **Web dashboard / HTML UI** (not shipped) |
+
+Ask the agent for IPS / balance-sheet tables in conversation, or wire your own tools to `*.local.*`. This repo intentionally has **no** graphical web UI.
 
 ### Audience
 
