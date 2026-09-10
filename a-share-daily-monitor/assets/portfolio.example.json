@@ -1,13 +1,27 @@
 {
-  "note": "Copy to portfolio.local.json and edit. Used by public monitor scripts.",
+  "note": "Copy to portfolio.local.json and edit. Costs/peaks are near mid-2026 demo levels so example runs do not false-trigger hard sells.",
+  "settings": {
+    "example_mode": true,
+    "enable_hard_sell_alerts": false,
+    "drawdown_watch_pct": 8,
+    "drawdown_alert_pct": 15,
+    "volume_cold_trillion": 1.5,
+    "volume_dry_trillion": 1.0
+  },
   "etf": {
-    "515980": {"name": "示例-AI ETF", "type": "进攻", "cost": 1.0, "peak": 1.2},
-    "512760": {"name": "示例-芯片ETF", "type": "进攻", "cost": 1.0, "peak": 1.2},
-    "512890": {"name": "示例-红利低波", "type": "防御", "cost": 1.1, "peak": null},
-    "512660": {"name": "示例-军工ETF", "type": "观察", "cost": 1.5, "peak": null}
+    "515980": {"name": "示例-AI ETF", "type": "进攻", "cost": 0.98, "peak": 1.05},
+    "512760": {"name": "示例-芯片ETF", "type": "进攻", "cost": 1.02, "peak": 1.08},
+    "512890": {"name": "示例-红利低波", "type": "防御", "cost": 1.20, "peak": null},
+    "512660": {"name": "示例-军工ETF", "type": "观察", "cost": 1.17, "peak": null}
   },
   "stocks": {
-    "601939": {"name": "示例-大行", "cost": 10.0}
+    "601939": {
+      "name": "示例-大行",
+      "cost": 10.50,
+      "annual_div": 0.40,
+      "min_yield_pct": 4.0,
+      "alert_on_low_yield": false
+    }
   },
   "sina_map": {
     "515980": "sh515980",

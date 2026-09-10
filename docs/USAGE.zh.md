@@ -55,7 +55,9 @@ Hermes / OpenClaw：把 `~/.family-wealth-skills` 下各 skill 目录链到对�
 |------|--------|
 | `~/.family-wealth-skills/family-wealth-ips/assets/ips.local.md` | 月支出、钱池、目标配比 |
 | `.../personal-financial-tracker/assets/balance-sheet.local.md` | 资产负债粗表 |
-| `.../a-share-daily-monitor/assets/portfolio.local.json` | 监控标的与成本 |
+| `.../a-share-daily-monitor/assets/portfolio.local.json` | 监控标的、成本/峰值、股息假设 |
+
+复制 `portfolio.example.json` 为 `portfolio.local.json` 后改真实数字。`settings.enable_hard_sell_alerts` 在 example 中默认关闭，避免演示组合误报「必须减仓」；本地实盘可设为 `true`。个股股息告警用 `annual_div` / `min_yield_pct` / `alert_on_low_yield`，勿把别人的阈值当自己的。
 
 监控脚本优先读 `portfolio.local.json`，没有则用 example。
 

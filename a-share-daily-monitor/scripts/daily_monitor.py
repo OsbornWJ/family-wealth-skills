@@ -24,64 +24,129 @@ ETF_TYPE = _PF["etf_type"]
 COST_NAV = _PF["cost_price"]
 STOCK_COST = _PF["stock_cost"]
 PEAK_NAV = _PF["peak_price"]
-print(f"[portfolio] loaded {_PF['path']}", flush=True)
+STOCK_SINA = _PF["stock_sina"]
+STOCK_META = _PF["stock_meta"]
+SETTINGS = _PF["settings"]
+IS_EXAMPLE = _PF["is_example"]
+HARD_SELL = bool(SETTINGS.get("enable_hard_sell_alerts", True))
+print(f"[portfolio] loaded {_PF['path']} (example={IS_EXAMPLE})", flush=True)
 
 SINA_HEADERS = {'Referer': 'https://finance.sina.com.cn'}
+
+try:
+    from quote_providers import get_realtime
+except ImportError:
+    get_realtime = None
+
+
+def _index_amount_yi(quote: dict) -> float:
+    """成交额 → 亿元。优先 amount(元) / 成交额_万。"""
+    if not quote or quote.get("error"):
+        return 0.0
+    amount = quote.get("amount")
+    if amount and float(amount) > 0:
+        return float(amount) / 1e8
+    wan = quote.get("成交额_万")
+    if wan and float(wan) > 0:
+        return float(wan) / 1e4
+    return 0.0
 
 
 # ============================================================
 # 1. 大盘环境
 # ============================================================
 def pull_market():
-    """拉取上证指数、科创50、成交额"""
+    """拉取上证指数、科创50、两市成交额（优先实时行情字段，避免 volume×均价误报）"""
     result = {}
-    try:
-        df_sh = ak.stock_zh_index_daily(symbol='sh000001')
-        sh = df_sh.iloc[-1]
-        sh_prev = df_sh.iloc[-2]
-        # volume 是成交股数，估算成交额：股数 × 均价(~8元)
-        sh_volume_shares = float(sh['volume'])
-        sh_amount_est = sh_volume_shares * 8 / 1e8  # 估算亿
-        result['上证指数'] = {
-            '收盘': round(float(sh['close']), 2),
-            '涨跌幅': round((float(sh['close']) / float(sh_prev['close']) - 1) * 100, 2),
-            '成交量_亿股': round(sh_volume_shares / 1e8, 1),
-            '估算成交额_亿': round(sh_amount_est, 1),
-        }
-    except Exception as e:
-        result['上证指数'] = {'error': str(e)[:100]}
+    amount_source = "none"
 
-    try:
-        df_kc = ak.stock_zh_index_daily(symbol='sh000688')
-        kc = df_kc.iloc[-1]
-        kc_prev = df_kc.iloc[-2]
-        result['科创50'] = {
-            '收盘': round(float(kc['close']), 2),
-            '涨跌幅': round((float(kc['close']) / float(kc_prev['close']) - 1) * 100, 2),
-        }
-    except Exception as e:
-        result['科创50'] = {'error': str(e)[:100]}
+    # 实时：沪深指数成交额（元）≈ 两市成交额
+    if get_realtime is not None:
+        try:
+            rt = get_realtime(["sh000001", "sz399001", "sh000688"])
+            sh_q = rt.get("sh000001") or {}
+            sz_q = rt.get("sz399001") or {}
+            kc_q = rt.get("sh000688") or {}
+            if sh_q.get("现价") and not sh_q.get("error"):
+                result["上证指数"] = {
+                    "收盘": round(float(sh_q["现价"]), 2),
+                    "涨跌幅": round(float(sh_q.get("涨跌幅") or 0), 2),
+                    "成交额_亿": round(_index_amount_yi(sh_q), 1),
+                }
+            if sz_q.get("现价") and not sz_q.get("error"):
+                result["深证成指"] = {
+                    "收盘": round(float(sz_q["现价"]), 2),
+                    "涨跌幅": round(float(sz_q.get("涨跌幅") or 0), 2),
+                    "成交额_亿": round(_index_amount_yi(sz_q), 1),
+                }
+            if kc_q.get("现价") and not kc_q.get("error"):
+                result["科创50"] = {
+                    "收盘": round(float(kc_q["现价"]), 2),
+                    "涨跌幅": round(float(kc_q.get("涨跌幅") or 0), 2),
+                }
+            sh_amt = result.get("上证指数", {}).get("成交额_亿", 0)
+            sz_amt = result.get("深证成指", {}).get("成交额_亿", 0)
+            if sh_amt + sz_amt > 100:  # 正常交易日两市合计远大于百亿
+                amount_source = "realtime"
+        except Exception as e:
+            result["_rt_error"] = str(e)[:80]
 
-    # 涨跌比估算（从两市成交额推算）
-    try:
-        df_sz = ak.stock_zh_index_daily(symbol='sz399001')
-        sz = df_sz.iloc[-1]
-        sz_volume_shares = float(sz['volume'])
-        sz_amount_est = sz_volume_shares * 8 / 1e8
-        result['深证成指'] = {
-            '收盘': round(float(sz['close']), 2),
-            '涨跌幅': round((float(sz['close']) / float(df_sz.iloc[-2]['close']) - 1) * 100, 2),
-            '成交量_亿股': round(sz_volume_shares / 1e8, 1),
-            '估算成交额_亿': round(sz_amount_est, 1),
-        }
-    except:
-        pass
+    # 回退：日线收盘价；成交额仍尽量不用 volume×均价
+    if "上证指数" not in result or "error" in result.get("上证指数", {}):
+        try:
+            df_sh = ak.stock_zh_index_daily(symbol="sh000001")
+            sh = df_sh.iloc[-1]
+            sh_prev = df_sh.iloc[-2]
+            result["上证指数"] = {
+                "收盘": round(float(sh["close"]), 2),
+                "涨跌幅": round((float(sh["close"]) / float(sh_prev["close"]) - 1) * 100, 2),
+            }
+        except Exception as e:
+            result["上证指数"] = {"error": str(e)[:100]}
 
-    sh_amt = result.get('上证指数', {}).get('估算成交额_亿', 0)
-    sz_amt = result.get('深证成指', {}).get('估算成交额_亿', 0)
-    total_vol = sh_amt + sz_amt
-    result['全市场估算成交额_万亿'] = round(total_vol / 10000, 2)
-    result['成交额达标'] = '✅ ≥2.8万亿' if total_vol >= 28000 else ('🟡 1.5-2.8万亿' if total_vol >= 15000 else f'🔴 仅{total_vol/10000:.2f}万亿')
+    if "科创50" not in result:
+        try:
+            df_kc = ak.stock_zh_index_daily(symbol="sh000688")
+            kc = df_kc.iloc[-1]
+            kc_prev = df_kc.iloc[-2]
+            result["科创50"] = {
+                "收盘": round(float(kc["close"]), 2),
+                "涨跌幅": round((float(kc["close"]) / float(kc_prev["close"]) - 1) * 100, 2),
+            }
+        except Exception as e:
+            result["科创50"] = {"error": str(e)[:100]}
+
+    if "深证成指" not in result:
+        try:
+            df_sz = ak.stock_zh_index_daily(symbol="sz399001")
+            sz = df_sz.iloc[-1]
+            result["深证成指"] = {
+                "收盘": round(float(sz["close"]), 2),
+                "涨跌幅": round((float(sz["close"]) / float(df_sz.iloc[-2]["close"]) - 1) * 100, 2),
+            }
+        except Exception:
+            pass
+
+    sh_amt = float(result.get("上证指数", {}).get("成交额_亿") or 0)
+    sz_amt = float(result.get("深证成指", {}).get("成交额_亿") or 0)
+    # 兼容旧字段名
+    if sh_amt and "估算成交额_亿" not in result.get("上证指数", {}):
+        result["上证指数"]["估算成交额_亿"] = sh_amt
+    if sz_amt and "估算成交额_亿" not in result.get("深证成指", {}):
+        result["深证成指"]["估算成交额_亿"] = sz_amt
+
+    total_yi = sh_amt + sz_amt
+    total_wan = round(total_yi / 10000, 2) if total_yi else 0
+    result["成交额来源"] = amount_source
+    result["全市场估算成交额_万亿"] = total_wan
+    if amount_source != "realtime" or total_yi <= 0:
+        result["成交额达标"] = "⚪ 成交额暂不可靠（未用实时字段）"
+    elif total_yi >= 28000:
+        result["成交额达标"] = "✅ ≥2.8万亿"
+    elif total_yi >= 15000:
+        result["成交额达标"] = "🟡 1.5-2.8万亿"
+    else:
+        result["成交额达标"] = f"🔴 仅{total_wan:.2f}万亿"
 
     return result
 
@@ -175,34 +240,78 @@ def pull_fund_flow():
 
 
 # ============================================================
-# 4. 建设银行
+# 4. 个股（组合配置）
 # ============================================================
-def pull_stock_601939():
-    """新浪财经实时行情"""
-    try:
-        url = 'https://hq.sinajs.cn/list=sh601939'
-        r = requests.get(url, headers=SINA_HEADERS, timeout=10)
-        data = r.text.split('"')[1]
-        fields = data.split(',')
-        # 0:name, 1:open, 2:prev_close, 3:price, 4:high, 5:low, 6:bid, 7:ask, 8:volume, 9:amount
-        price = float(fields[3])
-        prev_close = float(fields[2])
-        change_pct = round((price / prev_close - 1) * 100, 2)
-
-        return {
-            '名称': '建设银行',
-            '最新价': price,
-            '昨收': prev_close,
-            '涨跌幅': change_pct,
-            '最高': float(fields[4]),
-            '最低': float(fields[5]),
-            '成交量_手': int(fields[8]),
-            '成本价': STOCK_COST['601939'],
-            '成本盈亏_pct': round((price / STOCK_COST['601939'] - 1) * 100, 2),
+def pull_stocks():
+    """拉取组合内个股实时行情，返回 {code: {...}}"""
+    out = {}
+    if not STOCK_SINA:
+        return out
+    codes = list(STOCK_SINA.values())
+    batch = {}
+    if get_realtime is not None:
+        try:
+            batch = get_realtime(codes)
+        except Exception:
+            batch = {}
+    for code, sina in STOCK_SINA.items():
+        meta = STOCK_META.get(code) or {}
+        q = batch.get(sina) or batch.get(code) or {}
+        if (not q or q.get("error") or not q.get("现价")) and get_realtime is not None:
+            try:
+                q = get_realtime([sina]).get(sina) or {}
+            except Exception as e:
+                out[code] = {"error": str(e)[:100]}
+                continue
+        if not q or q.get("error") or not q.get("现价"):
+            # 最后回退新浪直连
+            try:
+                r = requests.get(
+                    f"https://hq.sinajs.cn/list={sina}",
+                    headers=SINA_HEADERS,
+                    timeout=10,
+                )
+                r.encoding = "gbk"
+                fields = r.text.split('"')[1].split(",")
+                price = float(fields[3])
+                prev = float(fields[2])
+                q = {
+                    "名称": fields[0],
+                    "现价": price,
+                    "昨收": prev,
+                    "涨跌幅": round((price / prev - 1) * 100, 2) if prev else 0,
+                    "最高": float(fields[4]),
+                    "最低": float(fields[5]),
+                    "成交量_手": int(float(fields[8])) if fields[8] else 0,
+                }
+            except Exception as e:
+                out[code] = {"error": str(e)[:100]}
+                continue
+        price = float(q.get("现价") or 0)
+        cost = STOCK_COST.get(code)
+        out[code] = {
+            "名称": meta.get("name") or q.get("名称") or code,
+            "最新价": price,
+            "昨收": float(q.get("昨收") or 0),
+            "涨跌幅": float(q.get("涨跌幅") or 0),
+            "最高": float(q.get("最高") or 0),
+            "最低": float(q.get("最低") or 0),
+            "成交量_手": int(q.get("成交量_手") or 0),
+            "成本价": cost,
+            "成本盈亏_pct": round((price / cost - 1) * 100, 2) if cost and cost > 0 else None,
         }
-    except Exception as e:
-        return {'error': str(e)[:100]}
+    return out
 
+
+# 兼容旧调用：单票结构
+def pull_stock_601939():
+    stocks = pull_stocks()
+    if not stocks:
+        return {"error": "no stocks in portfolio"}
+    code = next(iter(stocks))
+    d = dict(stocks[code])
+    d["_code"] = code
+    return d
 
 # ============================================================
 # 5. 外部变量
@@ -230,97 +339,125 @@ def check_triggers(etf_data, stock_data, market_data, flow_data, external):
     """逐条检查所有规则"""
     triggers = []
     alerts = []
+    alert_pct = float(SETTINGS.get("drawdown_alert_pct", 15))
+    watch_pct = float(SETTINGS.get("drawdown_watch_pct", 8))
+    dry_t = float(SETTINGS.get("volume_dry_trillion", 1.0))
+    cold_t = float(SETTINGS.get("volume_cold_trillion", 1.5))
+
+    def _sell_alert(item):
+        """示例包默认只记信息，不抛硬卖出警报。"""
+        if HARD_SELL:
+            alerts.append(item)
+        else:
+            soft = dict(item)
+            soft["level"] = "📊 信息"
+            soft["动作"] = f"（示例模式未启用硬减仓）{item.get('动作', '')}"
+            triggers.append(soft)
 
     # --- 进攻型：移动止盈 ---
-    for code in [c for c in ETF_CODES if ETF_TYPE.get(c) == '进攻' or c in PEAK_NAV]:
+    for code in [c for c in ETF_CODES if ETF_TYPE.get(c) == "进攻" or c in PEAK_NAV]:
         d = etf_data.get(code, {})
-        if 'error' in d:
+        if "error" in d:
             continue
-        peak = PEAK_NAV.get(code, d.get('60日峰值', d.get('单位净值', 0)))
-        current = d.get('单位净值', 0)
+        peak = PEAK_NAV.get(code, d.get("60日峰值", d.get("单位净值", 0)))
+        current = d.get("单位净值", 0)
         drawdown = (1 - current / peak) * 100 if peak > 0 else 0
 
-        if drawdown >= 15:
-            alerts.append({
-                'level': '🔴 红色',
-                '标的': f'{ETF_NAMES[code]}({code})',
-                '触发': f'移动止盈：从峰值{peak}回撤{drawdown:.1f}% ≥ 15%',
-                '动作': '减仓 1/2',
+        if drawdown >= alert_pct:
+            _sell_alert({
+                "level": "🔴 红色",
+                "标的": f"{ETF_NAMES.get(code, code)}({code})",
+                "触发": f"移动止盈：从峰值{peak}回撤{drawdown:.1f}% ≥ {alert_pct}%",
+                "动作": "减仓 1/2",
+            })
+        elif drawdown >= watch_pct:
+            triggers.append({
+                "level": "📊 信息",
+                "标的": f"{ETF_NAMES.get(code, code)}({code})",
+                "触发": f"回撤{drawdown:.1f}%，接近观察线{watch_pct}%",
+                "动作": "继续监控，暂不操作",
             })
 
-    # --- 进攻型：硬止损（季报/资本开支）---
-    # 这类数据需要人工判断或web search，脚本只做提醒
-    # 不自动触发
-
-    # --- 防御型：红利ETF ---
-    d_562060 = etf_data.get('562060', {})
-    if 'error' not in d_562060:
-        # 股息率检查（估算）
-        # 红利ETF当前净值约0.64，年化分红约0.025-0.03，估算股息率约4%
-        # 这里用粗糙估算，实际应从数据源获取
-        nav_562060 = d_562060.get('单位净值', 0)
-        if nav_562060:
-            # 标普A股红利ETF近12个月分红约0.028，估算股息率
-            est_div_yield = round(0.028 / nav_562060 * 100, 2) if nav_562060 > 0 else 0
-            if est_div_yield < 3.5:
-                alerts.append({
-                    'level': '🔴 红色',
-                    '标的': f'{ETF_NAMES["562060"]}(562060)',
-                    '触发': f'估算股息率{est_div_yield}% < 3.5%',
-                    '动作': '需要重新评估（同时检查技术面破位）',
-                })
-        # MA120破位检查
-        ma120_dev = d_562060.get('偏离MA120_pct')
+    # --- 防御型：持仓中 type=防御 的 ETF，仅做 MA120 观察 ---
+    for code in [c for c in ETF_CODES if ETF_TYPE.get(c) == "防御"]:
+        d = etf_data.get(code, {})
+        if "error" in d:
+            continue
+        ma120_dev = d.get("偏离MA120_pct")
         if ma120_dev is not None and ma120_dev < -3:
             alerts.append({
-                'level': '🟡 黄色',
-                '标的': f'{ETF_NAMES["562060"]}(562060)',
-                '触发': f'偏离MA120 {ma120_dev:.1f}%, 跌破幅度超3%',
-                '动作': '进入观察列表，关注股息率是否同步恶化',
+                "level": "🟡 黄色",
+                "标的": f"{ETF_NAMES.get(code, code)}({code})",
+                "触发": f"偏离MA120 {ma120_dev:.1f}%, 跌破幅度超3%",
+                "动作": "进入观察列表",
             })
 
-    # --- 防御型：建设银行 ---
-    if 'error' not in stock_data:
-        price_601939 = stock_data.get('最新价', 0)
-        # 建行2024年分红约0.40元/股
-        div_yield_601939 = round(0.40 / price_601939 * 100, 2) if price_601939 > 0 else 0
-        if div_yield_601939 < 4.0:
-            alerts.append({
-                'level': '🔴 红色',
-                '标的': '建设银行(601939)',
-                '触发': f'股息率{div_yield_601939}% < 4%',
-                '动作': '触发减持条件，建议评估',
+    # --- 个股股息率（阈值来自 portfolio，不再写死建行）---
+    # stock_data 可能是单票 dict（兼容旧结构）或 {code: {...}}
+    stock_map = stock_data if isinstance(stock_data, dict) and any(
+        k in STOCK_META for k in stock_data
+    ) else {"_single": stock_data} if stock_data else {}
+
+    if "_single" in stock_map and STOCK_META:
+        # 旧 pull_stock 只返回一只；按第一只配置映射
+        code0 = next(iter(STOCK_META))
+        stock_map = {code0: stock_map["_single"]}
+
+    for code, meta in STOCK_META.items():
+        d = stock_map.get(code) or {}
+        if not d or d.get("error"):
+            continue
+        if not meta.get("alert_on_low_yield"):
+            continue
+        annual = meta.get("annual_div")
+        if annual is None:
+            continue
+        price = float(d.get("最新价") or d.get("现价") or 0)
+        if price <= 0:
+            continue
+        min_y = float(meta.get("min_yield_pct") or 4.0)
+        y = round(annual / price * 100, 2)
+        if y < min_y:
+            name = meta.get("name") or STOCK_COST and code
+            _sell_alert({
+                "level": "🔴 红色",
+                "标的": f"{meta.get('name', code)}({code})",
+                "触发": f"估算股息率{y}% < {min_y}%（年化分红假设{annual}元）",
+                "动作": "触发减持条件，建议评估",
             })
 
-    # --- 观察型：军工 ---
-    d_512660 = etf_data.get('512660', {})
-    if 'error' not in d_512660:
-        cost = COST_NAV.get('512660', 0)
-        current = d_512660.get('单位净值', 0)
+    # --- 观察型：净值回到成本上方 ---
+    for code in [c for c in ETF_CODES if ETF_TYPE.get(c) == "观察"]:
+        d = etf_data.get(code, {})
+        if "error" in d:
+            continue
+        cost = COST_NAV.get(code, 0)
+        current = d.get("单位净值", 0)
         if current > cost and cost > 0:
             triggers.append({
-                'level': '📊 信息',
-                '标的': f'{ETF_NAMES["512660"]}(512660)',
-                '触发': f'净值{current} > 成本净值{cost}，触发重新评估',
-                '动作': '主人请重新评估军工仓位',
+                "level": "📊 信息",
+                "标的": f"{ETF_NAMES.get(code, code)}({code})",
+                "触发": f"净值{current} > 成本净值{cost}，触发重新评估",
+                "动作": "请重新评估该观察仓位",
             })
 
-    # --- 成交额预警 ---
-    total_vol = market_data.get('全市场估算成交额_万亿', 0)
-    if total_vol < 1.0:
-        alerts.append({
-            'level': '🔴 红色',
-            '标的': '大盘',
-            '触发': f'成交额仅{total_vol}万亿，极度缩量',
-            '动作': '注意流动性风险，不宜追高',
-        })
-    elif total_vol < 1.5:
-        alerts.append({
-            'level': '🟡 黄色',
-            '标的': '大盘',
-            '触发': f'成交额{total_vol}万亿，偏冷淡',
-            '动作': '控制仓位，等待放量',
-        })
+    # --- 成交额预警（仅实时可靠来源才告警）---
+    if market_data.get("成交额来源") == "realtime":
+        total_vol = float(market_data.get("全市场估算成交额_万亿") or 0)
+        if total_vol > 0 and total_vol < dry_t:
+            alerts.append({
+                "level": "🔴 红色",
+                "标的": "大盘",
+                "触发": f"两市成交额约{total_vol}万亿，极度缩量",
+                "动作": "注意流动性风险，不宜追高",
+            })
+        elif total_vol > 0 and total_vol < cold_t:
+            alerts.append({
+                "level": "🟡 黄色",
+                "标的": "大盘",
+                "触发": f"两市成交额约{total_vol}万亿，偏冷淡",
+                "动作": "控制仓位，等待放量",
+            })
 
     return alerts, triggers
 
@@ -340,12 +477,18 @@ def format_report(market, etf_data, flow_data, stock_data, external, alerts, tri
     kc = market.get('科创50', {})
     sz = market.get('深证成指', {})
     if 'error' not in sh:
-        lines.append(f"  上证: {sh['收盘']} ({sh['涨跌幅']:+.2f}%) | 成交 {sh.get('估算成交额_亿',0):.0f}亿(估)")
+        amt = sh.get('成交额_亿', sh.get('估算成交额_亿', 0)) or 0
+        lines.append(f"  上证: {sh['收盘']} ({sh['涨跌幅']:+.2f}%) | 成交 {amt:.0f}亿")
     if 'error' not in kc:
         lines.append(f"  科创50: {kc['收盘']} ({kc['涨跌幅']:+.2f}%)")
     if 'error' not in sz:
-        lines.append(f"  深证: {sz['收盘']} ({sz['涨跌幅']:+.2f}%) | 成交 {sz.get('估算成交额_亿',0):.0f}亿(估)")
-    lines.append(f"  全市场估算成交额: {market.get('全市场估算成交额_万亿', 'N/A')}万亿 {market.get('成交额达标', '')}")
+        amt = sz.get('成交额_亿', sz.get('估算成交额_亿', 0)) or 0
+        lines.append(f"  深证: {sz['收盘']} ({sz['涨跌幅']:+.2f}%) | 成交 {amt:.0f}亿")
+    src = market.get("成交额来源", "unknown")
+    lines.append(
+        f"  两市成交额: {market.get('全市场估算成交额_万亿', 'N/A')}万亿 "
+        f"{market.get('成交额达标', '')} [来源:{src}]"
+    )
 
     # 二、持仓快照
     lines.append("\n二、持仓快照")
@@ -381,14 +524,25 @@ def format_report(market, etf_data, flow_data, stock_data, external, alerts, tri
             f"{d.get('距峰值回撤_pct', 0):>+7.1f}% {cost_pnl:>8} {sig_str:<10}"
         )
 
-    # 建设银行
-    if 'error' not in stock_data:
-        s = stock_data
-        lines.append(
-            f"  {s['名称']:<16} {s['最新价']:>7.2f} {s['涨跌幅']:>+6.2f}% "
-            f"{'--':>8} {'--':>8} {'--':>8} "
-            f"{s.get('成本盈亏_pct', 0):>+7.1f}% {'🏦':>4}"
-        )
+    # 个股
+    stock_rows = (
+        stock_data
+        if isinstance(stock_data, dict) and any(k in STOCK_META for k in stock_data)
+        else None
+    )
+    if stock_rows is None and isinstance(stock_data, dict) and "error" not in stock_data and stock_data.get("最新价"):
+        stock_rows = {stock_data.get("_code") or next(iter(STOCK_META), "?"): stock_data}
+    if stock_rows:
+        for code, s in stock_rows.items():
+            if not s or s.get("error"):
+                continue
+            pnl = s.get("成本盈亏_pct")
+            pnl_s = f"{pnl:+.1f}%" if pnl is not None else "N/A"
+            lines.append(
+                f"  {s.get('名称', code):<16} {s.get('最新价', 0):>7.2f} {s.get('涨跌幅', 0):>+6.2f}% "
+                f"{'--':>8} {'--':>8} {'--':>8} "
+                f"{pnl_s:>8} {'🏦':>4}"
+            )
 
     # 三、资金信号
     lines.append("\n三、主力资金信号")
@@ -471,8 +625,8 @@ def main():
     flow_data = pull_fund_flow()
     print("  ✅ 资金流向", file=sys.stderr)
 
-    stock_data = pull_stock_601939()
-    print("  ✅ 建设银行", file=sys.stderr)
+    stock_data = pull_stocks()
+    print(f"  ✅ 个股 {list(stock_data.keys()) or '无'}", file=sys.stderr)
 
     external = pull_external()
     print("  ✅ 外部变量", file=sys.stderr)

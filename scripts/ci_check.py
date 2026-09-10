@@ -93,6 +93,14 @@ def main() -> int:
         try:
             data = json.loads(example.read_text(encoding="utf-8"))
             assert "etf" in data and "stocks" in data
+            # costs should look like real A-share levels (not placeholder 1.0 across the board)
+            costs = [float(v["cost"]) for v in data["etf"].values() if "cost" in v]
+            if costs and max(costs) / max(min(costs), 1e-9) < 1.01 and all(abs(c - 1.0) < 1e-6 for c in costs):
+                errors.append("portfolio.example.json ETF costs look like placeholders (all ~1.0)")
+            settings = data.get("settings") or {}
+            if settings.get("enable_hard_sell_alerts") is not False and data.get("settings", {}).get("example_mode"):
+                # prefer soft alerts for public example
+                pass
         except Exception as e:
             errors.append(f"portfolio.example.json invalid: {e}")
 
@@ -116,6 +124,12 @@ def main() -> int:
         pf = load_portfolio()
         if not pf.get("cost_price"):
             errors.append("load_portfolio returned empty cost_price")
+        if not pf.get("is_example"):
+            errors.append("example portfolio should set is_example=True in CI")
+        if pf.get("settings", {}).get("enable_hard_sell_alerts") is not False:
+            errors.append("example pack should disable hard sell alerts by default")
+        if "stock_meta" not in pf:
+            errors.append("load_portfolio missing stock_meta")
     except Exception as e:
         errors.append(f"portfolio_config import failed: {e}")
 

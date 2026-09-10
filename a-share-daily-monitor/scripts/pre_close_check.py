@@ -21,7 +21,11 @@ ETF_NAMES = _PF["etf_names"]
 ETF_TYPE = _PF["etf_type"]
 PEAK_PRICE = _PF["peak_price"]
 COST_PRICE = _PF["cost_price"]
-print(f"[portfolio] loaded {_PF['path']}", flush=True)
+STOCK_SINA = _PF["stock_sina"]
+STOCK_META = _PF["stock_meta"]
+SETTINGS = _PF["settings"]
+HARD_SELL = bool(SETTINGS.get("enable_hard_sell_alerts", True))
+print(f"[portfolio] loaded {_PF['path']} (example={_PF['is_example']})", flush=True)
 
 SINA_HEADERS = {'Referer': 'https://finance.sina.com.cn'}
 
@@ -95,77 +99,109 @@ def fetch_index():
 
 
 def fetch_stock():
-    """建设银行实时行情"""
-    return fetch_sina_quote('sh601939')
+    """组合内第一只个股实时行情（无个股则返回 None）"""
+    if not STOCK_SINA:
+        return None
+    code = next(iter(STOCK_SINA))
+    q = fetch_sina_quote(STOCK_SINA[code])
+    if isinstance(q, dict):
+        q = dict(q)
+        q["_code"] = code
+    return q
+
 
 def check_alerts(etf_quotes, stock_quote, index_data):
     """检查所有盘中触发条件"""
     alerts = []
+    alert_pct = float(SETTINGS.get("drawdown_alert_pct", 15))
+    watch_pct = float(SETTINGS.get("drawdown_watch_pct", 8))
+    # 尾盘：逼近线略低于正式止盈线
+    near_pct = max(watch_pct, alert_pct - 3)
+
+    def _maybe_hard(item):
+        if HARD_SELL or item.get("level") in ("🟡", "📊", "🟢"):
+            alerts.append(item)
+        else:
+            soft = dict(item)
+            soft["level"] = "📊"
+            soft["动作"] = f"（示例模式）{item.get('动作', '')}"
+            alerts.append(soft)
 
     # --- 进攻型移动止盈检查 ---
-    for code in [c for c in ETF_SINA_MAP if ETF_TYPE.get(c) == '进攻' or c in PEAK_PRICE]:
+    for code in [c for c in ETF_SINA_MAP if ETF_TYPE.get(c) == "进攻" or c in PEAK_PRICE]:
         q = etf_quotes.get(code) or {}
-        if 'error' in q:
+        if "error" in q:
             continue
-        price = q.get('现价', 0)
+        price = q.get("现价", 0)
         peak = PEAK_PRICE.get(code, price)
         if peak > 0 and price > 0:
             drawdown = round((1 - price / peak) * 100, 1)
-            if drawdown >= 12:
-                alerts.append({
-                    'level': '🔴',
-                    '标的': f'{ETF_NAMES.get(code, code)}({code})',
-                    '内容': f'回撤{drawdown}%，逼近15%止盈线！现价{price}，峰值{peak}',
-                    '动作': '如14:55前未回升，收盘前执行减仓1/2',
+            if drawdown >= near_pct:
+                _maybe_hard({
+                    "level": "🔴",
+                    "标的": f"{ETF_NAMES.get(code, code)}({code})",
+                    "内容": f"回撤{drawdown}%，逼近{alert_pct}%止盈线！现价{price}，峰值{peak}",
+                    "动作": "如14:55前未回升，收盘前执行减仓1/2",
                 })
-            elif drawdown >= 8:
+            elif drawdown >= watch_pct:
                 alerts.append({
-                    'level': '🟡',
-                    '标的': f'{ETF_NAMES.get(code, code)}({code})',
-                    '内容': f'回撤{drawdown}%，注意观察',
-                    '动作': '继续监控，暂不操作',
+                    "level": "🟡",
+                    "标的": f"{ETF_NAMES.get(code, code)}({code})",
+                    "内容": f"回撤{drawdown}%，注意观察",
+                    "动作": "继续监控，暂不操作",
                 })
 
-    # --- 军工 > 成本价 ---
-    q_512660 = etf_quotes.get('512660') or {}
-    if 'error' not in q_512660:
-        price = q_512660.get('现价', 0)
-        cost = COST_PRICE.get('512660', 0)
+    # --- 观察型：现价回到成本上方 ---
+    for code in [c for c in ETF_SINA_MAP if ETF_TYPE.get(c) == "观察"]:
+        q = etf_quotes.get(code) or {}
+        if "error" in q:
+            continue
+        price = q.get("现价", 0)
+        cost = COST_PRICE.get(code, 0)
         if price > cost and cost > 0:
             alerts.append({
-                'level': '📊',
-                '标的': '军工ETF(512660)',
-                '内容': f'现价{price} > 成本{cost}，触发重新评估',
-                '动作': '收盘后请重新评估军工仓位',
+                "level": "📊",
+                "标的": f"{ETF_NAMES.get(code, code)}({code})",
+                "内容": f"现价{price} > 成本{cost}，触发重新评估",
+                "动作": "收盘后请重新评估该观察仓位",
             })
 
-    # --- 建行股息率 ---
-    if stock_quote and 'error' not in stock_quote:
-        price = stock_quote.get('现价', 0)
-        div_yield = round(0.40 / price * 100, 2) if price > 0 else 0
-        if div_yield < 4.0:
-            alerts.append({
-                'level': '🟡',
-                '标的': '建设银行(601939)',
-                '内容': f'股息率{div_yield}% < 4%',
-                '动作': '触发减持条件',
-            })
+    # --- 个股股息率 ---
+    if stock_quote and not stock_quote.get("error"):
+        code = stock_quote.get("_code") or (next(iter(STOCK_META), None) if STOCK_META else None)
+        meta = STOCK_META.get(code or "", {})
+        if meta.get("alert_on_low_yield") and meta.get("annual_div") is not None:
+            price = float(stock_quote.get("现价") or 0)
+            annual = float(meta["annual_div"])
+            min_y = float(meta.get("min_yield_pct") or 4.0)
+            if price > 0:
+                y = round(annual / price * 100, 2)
+                if y < min_y:
+                    _maybe_hard({
+                        "level": "🟡",
+                        "标的": f"{meta.get('name', code)}({code})",
+                        "内容": f"估算股息率{y}% < {min_y}%",
+                        "动作": "触发减持条件",
+                    })
 
     # --- 单日大跌预警 ---
     for code, q in etf_quotes.items():
-        if not q or 'error' in q:
+        if not q or "error" in q:
             continue
-        change = round((q.get('现价', 0) / q.get('昨收', 1) - 1) * 100, 2) if q.get('昨收', 0) > 0 else 0
+        change = (
+            round((q.get("现价", 0) / q.get("昨收", 1) - 1) * 100, 2)
+            if q.get("昨收", 0) > 0
+            else 0
+        )
         if change <= -5:
             alerts.append({
-                'level': '🔴',
-                '标的': f'{ETF_NAMES.get(code, code)}({code})',
-                '内容': f'单日暴跌{change}%',
-                '动作': '检查是否有突发利空，考虑尾盘减仓',
+                "level": "🔴",
+                "标的": f"{ETF_NAMES.get(code, code)}({code})",
+                "内容": f"单日暴跌{change}%",
+                "动作": "检查是否有突发利空，考虑尾盘减仓",
             })
 
     return alerts
-
 
 def format_report(index_data, etf_quotes, stock_quote, alerts):
     now_str = datetime.now().strftime('%H:%M')
@@ -213,11 +249,13 @@ def format_report(index_data, etf_quotes, stock_quote, alerts):
 
         lines.append(f"  {ETF_NAMES.get(code, code):<16} {price:>7.4f} {change:>+6.2f}% {peak_str:>8} {status:>6}")
 
-    # 建设银行
-    if stock_quote and 'error' not in stock_quote:
+    # 个股
+    if stock_quote and "error" not in stock_quote:
         s = stock_quote
-        change = round((s['现价'] / s['昨收'] - 1) * 100, 2)
-        lines.append(f"  建设银行            {s['现价']:>7.2f} {change:>+6.2f}% {'--':>8} {'🏦':>6}")
+        code = s.get("_code") or (next(iter(STOCK_META), None) if STOCK_META else None)
+        name = (STOCK_META.get(code) or {}).get("name", code or "个股") if code else "个股"
+        change = round((s["现价"] / s["昨收"] - 1) * 100, 2) if s.get("昨收", 0) > 0 else 0
+        lines.append(f"  {name:<16} {s['现价']:>7.2f} {change:>+6.2f}% {'--':>8} {'🏦':>6}")
 
     # 警报
     lines.append(f"\n【触发警报】({len(alerts)}条)")

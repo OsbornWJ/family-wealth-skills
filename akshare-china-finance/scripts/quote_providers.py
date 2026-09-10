@@ -96,7 +96,9 @@ def fetch_tencent_batch(codes: Iterable[str]) -> Dict[str, dict]:
                 ((price / prev) - 1) * 100 if prev else 0.0
             )
             vol = float(f[6]) if len(f) > 6 and f[6] else 0.0
-            amount = float(f[37]) if len(f) > 37 and f[37] else 0.0
+            # 腾讯成交额单位为「万元」
+            amount_wan = float(f[37]) if len(f) > 37 and f[37] else 0.0
+            amount = amount_wan * 10000.0  # 统一为元
             name = f[1] if len(f) > 1 else sym
             canon = key_map.get(sym, normalize_code(sym))
             out[canon] = {
@@ -108,7 +110,7 @@ def fetch_tencent_batch(codes: Iterable[str]) -> Dict[str, dict]:
                 "最低": low,
                 "涨跌幅": pct,
                 "成交量_手": vol,
-                "成交额_万": amount / 10000.0 if amount > 10000 else amount,
+                "成交额_万": amount_wan,
                 "source": "tencent",
                 "price": price,
                 "open": open_,

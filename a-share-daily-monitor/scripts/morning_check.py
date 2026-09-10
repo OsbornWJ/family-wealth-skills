@@ -22,7 +22,11 @@ ETF_TYPE = _PF["etf_type"]
 PEAK_PRICE = _PF["peak_price"]
 COST_PRICE = _PF["cost_price"]
 STOCK_COST = _PF["stock_cost"]
-print(f"[portfolio] loaded {_PF['path']}", flush=True)
+STOCK_SINA = _PF["stock_sina"]
+STOCK_META = _PF["stock_meta"]
+SETTINGS = _PF["settings"]
+HARD_SELL = bool(SETTINGS.get("enable_hard_sell_alerts", True))
+print(f"[portfolio] loaded {_PF['path']} (example={_PF['is_example']})", flush=True)
 
 SINA_HEADERS = {'Referer': 'https://finance.sina.com.cn'}
 
@@ -102,8 +106,49 @@ def fetch_index():
 
 
 def fetch_stock():
-    """建设银行实时行情"""
-    return fetch_sina_quote('sh601939')
+    """组合内第一只个股实时行情（无个股则返回 None）"""
+    if not STOCK_SINA:
+        return None
+    code = next(iter(STOCK_SINA))
+    q = fetch_sina_quote(STOCK_SINA[code])
+    if isinstance(q, dict):
+        q = dict(q)
+        q["_code"] = code
+    return q
+
+
+def _stock_div_alert(stock_quote, alerts, level="🟡"):
+    if not stock_quote or stock_quote.get("error"):
+        return
+    code = stock_quote.get("_code") or (next(iter(STOCK_META), None) if STOCK_META else None)
+    if not code or code not in STOCK_META:
+        return
+    meta = STOCK_META[code]
+    if not meta.get("alert_on_low_yield"):
+        return
+    annual = meta.get("annual_div")
+    if annual is None:
+        return
+    price = float(stock_quote.get("现价") or 0)
+    if price <= 0:
+        return
+    min_y = float(meta.get("min_yield_pct") or 4.0)
+    y = round(annual / price * 100, 2)
+    if y >= min_y:
+        return
+    item = {
+        "level": level,
+        "标的": f"{meta.get('name', code)}({code})",
+        "内容": f"估算股息率{y}% < {min_y}%（年化分红假设{annual}元）",
+        "动作": "持续监控，尾盘确认" if level == "🟡" else "触发减持条件",
+    }
+    if HARD_SELL:
+        alerts.append(item)
+    else:
+        soft = dict(item)
+        soft["level"] = "📊"
+        soft["动作"] = f"（示例模式）{item['动作']}"
+        alerts.append(soft)
 
 def fetch_north_flow():
     """拉取北向资金当日实时流向（沪股通+深股通）"""
@@ -259,17 +304,8 @@ def check_morning_alerts(etf_quotes, stock_quote, index_data, opening):
                 '动作': '进攻型ETF(515980/512760)需重点监控',
             })
 
-    # --- 建设银行 ---
-    if stock_quote and 'error' not in stock_quote:
-        price = stock_quote.get('现价', 0)
-        div_yield = round(0.40 / price * 100, 2) if price > 0 else 0
-        if div_yield < 4.0:
-            alerts.append({
-                'level': '🟡',
-                '标的': '建设银行(601939)',
-                '内容': f'股息率{div_yield}%，低于4%阈值',
-                '动作': '持续监控，尾盘确认',
-            })
+    # --- 个股股息率（配置驱动）---
+    _stock_div_alert(stock_quote, alerts, level="🟡")
 
     return alerts
 
@@ -330,12 +366,23 @@ def format_report(index_data, etf_quotes, stock_quote, opening, alerts, north_fl
             f"{o.get('振幅%', 0):>5.1f}% {vol:>7.2f}亿"
         )
 
-    # 建设银行
-    if stock_quote and 'error' not in stock_quote:
+    # 个股
+    if stock_quote and "error" not in stock_quote:
         s = stock_quote
-        change = round((s['现价'] / s['昨收'] - 1) * 100, 2) if s.get('昨收', 0) > 0 else 0
-        cost_pnl = round((s['现价'] / STOCK_COST.get('601939') or list(STOCK_COST.values())[0] if STOCK_COST else 1 - 1) * 100, 2)
-        lines.append(f"  建设银行            {s['现价']:>7.2f} {change:>+6.2f}% {'--':>6} {'--':>8} {'--':>6} {'--':>8} 成本盈亏{cost_pnl:+.1f}%")
+        code = s.get("_code") or (next(iter(STOCK_COST), None) if STOCK_COST else None)
+        name = (STOCK_META.get(code) or {}).get("name", code or "个股") if code else "个股"
+        change = round((s["现价"] / s["昨收"] - 1) * 100, 2) if s.get("昨收", 0) > 0 else 0
+        cost = STOCK_COST.get(code) if code else None
+        if cost and cost > 0:
+            cost_pnl = round((s["现价"] / cost - 1) * 100, 2)
+            lines.append(
+                f"  {name:<16} {s['现价']:>7.2f} {change:>+6.2f}% "
+                f"{'--':>6} {'--':>8} {'--':>6} {'--':>8} 成本盈亏{cost_pnl:+.1f}%"
+            )
+        else:
+            lines.append(
+                f"  {name:<16} {s['现价']:>7.2f} {change:>+6.2f}%"
+            )
 
     # 三、开盘形态分析
     lines.append("\n三、开盘形态解读")
@@ -410,7 +457,7 @@ def main():
     print("  ✅ 大盘指数", file=sys.stderr)
 
     stock_quote = fetch_stock()
-    print("  ✅ 建设银行", file=sys.stderr)
+    print(f"  ✅ 个股 {stock_quote.get('_code') if stock_quote else '无'}", file=sys.stderr)
 
     # 开盘形态分析
     opening = analyze_opening(etf_quotes)
