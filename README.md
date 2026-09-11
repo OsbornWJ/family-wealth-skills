@@ -45,7 +45,7 @@ pip3 install requests pandas akshare baostock   # 要用行情脚本时再装
 **新开一轮对话**，直接说：「按 family-wealth-ips 先问清楚能不能买」。
 
 可选：改 `~/.family-wealth-skills/**/assets/*.local.*` 填自己的钱池/持仓。  
-完整说明：[docs/USAGE.zh.md](docs/USAGE.zh.md) · 演示：[examples/demo-conversation.zh.md](examples/demo-conversation.zh.md) · **实跑场景**：[examples/scenario-monitor-2026-09-10.zh.md](examples/scenario-monitor-2026-09-10.zh.md)
+完整说明：[docs/USAGE.zh.md](docs/USAGE.zh.md) · 演示：[examples/demo-conversation.zh.md](examples/demo-conversation.zh.md) · **实跑场景**：[examples/scenario-monitor-2026-09-11.zh.md](examples/scenario-monitor-2026-09-11.zh.md)
 
 ### Skill 地图
 

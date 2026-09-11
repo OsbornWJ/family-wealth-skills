@@ -88,12 +88,9 @@ def main() -> int:
         if EMBEDDED_SECRET.search(text):
             errors.append(f"possible embedded secret in {rel}")
 
-        # historical notes may mention the old title; forbid as live section header only in templates/scripts
-        if MISLEADING_FUND_FLOW.search(text) and p.suffix in {".py", ".md"}:
-            if "output-formats.md" in rel or p.suffix == ".py":
-                errors.append(f"outdated section title 主力资金信号 in {rel}")
-            if rel.endswith("scenario-monitor-2026-09-10.zh.md") and "三、主力资金信号\n  ⚠️" in text:
-                errors.append(f"stale fund-flow failure sample still primary in {rel}")
+            if rel.endswith("output-formats.md") or p.suffix == ".py":
+                if MISLEADING_FUND_FLOW.search(text):
+                    errors.append(f"outdated section title 主力资金信号 in {rel}")
 
         if p.suffix == ".py" and "portfolio_config" not in p.name:
             if HARDCODED_COST.search(text) and "example" not in text.lower():

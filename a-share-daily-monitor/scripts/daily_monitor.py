@@ -220,7 +220,7 @@ def _safe_float(x, default=None):
         if isinstance(x, float) and (x != x):  # NaN
             return default
         s = str(x).strip().replace("%", "").replace(",", "")
-        if s in ("", "None", "nan", "NaN", "--", "None"):
+        if s in ("", "None", "nan", "NaN", "--", "---", "——", "None"):
             return default
         return float(s)
     except Exception:
@@ -250,10 +250,24 @@ def pull_fund_flow():
         results["_error"] = "东方财富返回无净值列"
         return _enrich_flow_with_realtime(results)
 
-    d_latest = dates[-1]
-    d_prev = dates[-2] if len(dates) > 1 else dates[-1]
-    results["_nav_date"] = d_latest
     code_col = "基金代码" if "基金代码" in df.columns else df.columns[0]
+    # 选「多数标的有有效净值」的最近日期，避免当日列占位但空值
+    best_date = dates[-1]
+    for d in reversed(dates):
+        ok = 0
+        for code in ETF_CODES:
+            row = df[df[code_col].astype(str).str.zfill(6) == str(code).zfill(6)]
+            if row.empty:
+                continue
+            if _safe_float(row.iloc[0].get(f"{d}-单位净值")):
+                ok += 1
+        if ok >= max(1, len(ETF_CODES) // 2):
+            best_date = d
+            break
+    d_latest = best_date
+    older = [d for d in dates if d < d_latest]
+    d_prev = older[-1] if older else (dates[-2] if len(dates) > 1 else dates[-1])
+    results["_nav_date"] = d_latest
 
     for code in ETF_CODES:
         row = df[df[code_col].astype(str).str.zfill(6) == str(code).zfill(6)]
@@ -263,10 +277,15 @@ def pull_fund_flow():
         r = row.iloc[0]
         nav = _safe_float(r.get(f"{d_latest}-单位净值"))
         nav_prev = _safe_float(r.get(f"{d_prev}-单位净值"))
+        if nav is None and nav_prev is not None:
+            nav = nav_prev
+            results.setdefault("_nav_note", "部分标的当日净值空，已回退到上一交易日净值")
         px = _safe_float(r.get("市价"))
         prem = r.get("折价率", None)
         prem_s = str(prem).strip() if prem is not None else None
-        if (prem_s in (None, "", "nan", "None", "--")) and px and nav and nav > 0:
+        if prem_s in (None, "", "nan", "None", "--", "---", "——"):
+            prem_s = None
+        if prem_s is None and px and nav and nav > 0:
             prem_s = f"{(px / nav - 1) * 100:.2f}%"
         results[code] = {
             "今日市价": px,
@@ -305,10 +324,16 @@ def _enrich_flow_with_realtime(results: dict) -> dict:
             pass
         cur.pop("error", None)
         cur["今日市价"] = px
-        nav = _safe_float(cur.get("今日NAV"))
+        nav = _safe_float(cur.get("今日NAV")) or _safe_float(cur.get("昨日NAV"))
         if nav and nav > 0:
+            cur["今日NAV"] = nav
             cur["折溢价率"] = f"{(px / nav - 1) * 100:.2f}%"
-        elif not cur.get("折溢价率"):
+        elif not cur.get("折溢价率") or str(cur.get("折溢价率")).strip() in (
+            "N/A",
+            "--",
+            "---",
+            "缺净值",
+        ):
             cur["折溢价率"] = "缺净值"
         results[code] = cur
         filled += 1
