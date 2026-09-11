@@ -139,8 +139,12 @@ def pull_market():
     total_wan = round(total_yi / 10000, 2) if total_yi else 0
     result["成交额来源"] = amount_source
     result["全市场估算成交额_万亿"] = total_wan
+    now = datetime.now()
+    full_day_ok = now.hour > 14 or (now.hour == 14 and now.minute >= 30) or now.hour >= 15
     if amount_source != "realtime" or total_yi <= 0:
         result["成交额达标"] = "⚪ 成交额暂不可靠（未用实时字段）"
+    elif not full_day_ok:
+        result["成交额达标"] = f"⚪ 盘中累计{total_wan:.2f}万亿（非全日）"
     elif total_yi >= 28000:
         result["成交额达标"] = "✅ ≥2.8万亿"
     elif total_yi >= 15000:
