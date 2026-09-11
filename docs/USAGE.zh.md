@@ -21,17 +21,21 @@ pip3 install requests pandas akshare baostock
 pip3 install mootdx
 ```
 
-## 2. 安装 Skill（推荐：一条命令）
+## 2. 安装 / 重置 / 卸载（推荐：一条命令）
 
 ```bash
+# 安装 → ~/.family-wealth-skills，并链到 Cursor / Claude
 curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/install.sh | bash
+
+# 重置本地数字（自动备份到 ~/.family-wealth-skills-backup-时间戳）
+curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/reset-local.sh | bash
+
+# 整包卸载
+curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/uninstall.sh | bash
 ```
 
-脚本会：
-
-1. 克隆/更新到 `~/.family-wealth-skills`
-2. 自动 symlink 到 `~/.cursor/skills` 与 `~/.claude/skills`
-3. 若还没有 local 配置，从 example 复制一份（不覆盖已有）
+安装脚本会：克隆/更新、自动 symlink、若还没有 local 则从 example 复制（不覆盖已有）。  
+重置 / 卸载时输入 `yes` 确认；或加 `FAMILY_WEALTH_YES=1` 跳过提问。
 
 **新开一轮对话** 后再用（多数运行时只在会话开始时加载 skill）。
 

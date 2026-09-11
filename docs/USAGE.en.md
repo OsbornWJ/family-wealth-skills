@@ -8,11 +8,13 @@ For investors who primarily use **China A-shares / CNY** and AgentSkills-capable
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/reset-local.sh | bash   # reset local numbers
+curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/uninstall.sh | bash    # remove everything
 pip3 install requests pandas akshare baostock   # only if you need quote scripts
 ```
 
-This clones to `~/.family-wealth-skills` and symlinks into Cursor / Claude Code.  
-Start a **new** agent session afterward. Edit `*.local.*` under that folder when ready (never commit them).
+Install clones to `~/.family-wealth-skills` and symlinks into Cursor / Claude Code.  
+Confirm with `yes`, or set `FAMILY_WEALTH_YES=1`. Start a **new** agent session afterward.
 
 ## How to talk to the agent
 

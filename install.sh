@@ -64,3 +64,7 @@ echo "Edit your numbers (optional):"
 echo "  $INSTALL_DIR/family-wealth-ips/assets/ips.local.md"
 echo "  $INSTALL_DIR/a-share-daily-monitor/assets/portfolio.local.json"
 echo "Then start a NEW agent chat and try: 先问清楚能不能买（family-wealth-ips）"
+echo
+echo "以后要用："
+echo "  重置本地数字:  curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/reset-local.sh | bash"
+echo "  一键卸载:      curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/uninstall.sh | bash"

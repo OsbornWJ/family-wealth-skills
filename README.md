@@ -30,17 +30,23 @@ This is a **sanitized public export** — no live portfolios, session diaries, o
 
 海外用户可借鉴 IPS 与资产负债表；行情脚本与产品规则默认只服务中国市场。
 
-### 安装（一条命令）
+### 安装 / 重置 / 卸载（都是一条命令）
 
 ```bash
+# 安装
 curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/install.sh | bash
+
+# 只用行情脚本时再装依赖
+pip3 install requests pandas akshare baostock
+
+# 把本地填写的数字清回示例（自动备份，技能保留）
+curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/reset-local.sh | bash
+
+# 整包卸掉（目录 + 链接 + 本地配置）
+curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/uninstall.sh | bash
 ```
 
-会克隆到 `~/.family-wealth-skills`，并自动链到 Cursor / Claude Code。然后：
-
-```bash
-pip3 install requests pandas akshare baostock   # 要用行情脚本时再装
-```
+提示输入 `yes` 即确认。不想交互时前面加 `FAMILY_WEALTH_YES=1`。
 
 **新开一轮对话**，直接说：「按 family-wealth-ips 先问清楚能不能买」。
 
@@ -86,14 +92,15 @@ Users who invest mainly in **China A-shares / CNY fixed income** and run skill-c
 
 The “ask before buying” idea travels; quote APIs and product rules do **not** auto-work for US/EU accounts.
 
-### Install (one liner)
+### Install / reset / uninstall
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/install.sh | bash
-pip3 install requests pandas akshare baostock   # only if you need quote scripts
+curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/reset-local.sh | bash   # wipe local numbers
+curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/uninstall.sh | bash    # remove everything
 ```
 
-Start a **new** agent chat. Full guide: [docs/USAGE.en.md](docs/USAGE.en.md).
+Use `FAMILY_WEALTH_YES=1` to skip the yes prompt. Then start a **new** agent chat. Full guide: [docs/USAGE.en.md](docs/USAGE.en.md).
 
 ### Disclaimer
 
