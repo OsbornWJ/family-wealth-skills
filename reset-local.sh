@@ -79,5 +79,5 @@ copy_pair \
 
 echo
 echo "OK: 本地数据已恢复成示例。"
-echo "备份在: $backup"
-echo "技能仍在: $INSTALL_DIR（未卸载）"
+echo "备份在: ${backup}"
+echo "技能仍在: ${INSTALL_DIR} (未卸载)"
