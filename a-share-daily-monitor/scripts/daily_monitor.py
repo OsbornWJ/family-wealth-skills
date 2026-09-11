@@ -516,10 +516,20 @@ def check_triggers(etf_data, stock_data, market_data, flow_data, external):
                 "动作": "请重新评估该观察仓位",
             })
 
-    # --- 成交额预警（仅实时可靠来源才告警）---
+    # --- 成交额预警（仅实时可靠来源；全日阈值只在尾盘/收盘后用）---
     if market_data.get("成交额来源") == "realtime":
         total_vol = float(market_data.get("全市场估算成交额_万亿") or 0)
-        if total_vol > 0 and total_vol < dry_t:
+        now = datetime.now()
+        # A股连续竞价约 9:30–11:30 + 13:00–15:00；14:30 前累计额不能当全日量
+        full_day_ok = (now.hour > 14 or (now.hour == 14 and now.minute >= 30)) or now.hour >= 15
+        if total_vol > 0 and not full_day_ok:
+            triggers.append({
+                "level": "📊 信息",
+                "标的": "大盘",
+                "触发": f"盘中累计两市约{total_vol}万亿（非全日，不作缩量红灯）",
+                "动作": "尾盘后再对照 1.5/2.8 万亿阈值",
+            })
+        elif total_vol > 0 and total_vol < dry_t:
             alerts.append({
                 "level": "🔴 红色",
                 "标的": "大盘",
