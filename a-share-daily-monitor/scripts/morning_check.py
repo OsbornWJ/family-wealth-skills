@@ -301,7 +301,10 @@ def check_morning_alerts(etf_quotes, stock_quote, index_data, opening):
                 'level': '🔴',
                 '标的': '科创50',
                 '内容': f'科创早盘跌{kc_change}%，科技成长承压',
-                '动作': '进攻型ETF(515980/512760)需重点监控',
+                '动作': (
+                    '进攻型ETF需重点监控: '
+                    + (','.join(c for c, t in ETF_TYPE.items() if t == '进攻') or '持仓进攻仓')
+                ),
             })
 
     # --- 个股股息率（配置驱动）---

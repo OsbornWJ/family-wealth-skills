@@ -3,6 +3,7 @@
   "settings": {
     "example_mode": true,
     "enable_hard_sell_alerts": false,
+    "enable_observe_over_cost_alert": false,
     "drawdown_watch_pct": 8,
     "drawdown_alert_pct": 15,
     "volume_cold_trillion": 1.5,

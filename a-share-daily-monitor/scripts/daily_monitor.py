@@ -29,6 +29,7 @@ STOCK_META = _PF["stock_meta"]
 SETTINGS = _PF["settings"]
 IS_EXAMPLE = _PF["is_example"]
 HARD_SELL = bool(SETTINGS.get("enable_hard_sell_alerts", True))
+OBSERVE_OVER_COST = bool(SETTINGS.get("enable_observe_over_cost_alert", True))
 print(f"[portfolio] loaded {_PF['path']} (example={IS_EXAMPLE})", flush=True)
 
 SINA_HEADERS = {'Referer': 'https://finance.sina.com.cn'}
@@ -185,7 +186,7 @@ def pull_etf_data():
             daily_change = float(latest['日增长率'])
 
             results[code] = {
-                '名称': ETF_NAMES[code],
+                '名称': ETF_NAMES.get(code, code),
                 '类型': ETF_TYPE[code],
                 '数据日期': latest_date,
                 '单位净值': current_nav,
@@ -204,7 +205,7 @@ def pull_etf_data():
                 '成本盈亏_pct': round((current_nav / COST_NAV[code] - 1) * 100, 2) if code in COST_NAV else None,
             }
         except Exception as e:
-            results[code] = {'名称': ETF_NAMES[code], 'error': str(e)[:100]}
+            results[code] = {'名称': ETF_NAMES.get(code, code), 'error': str(e)[:100]}
 
     return results
 
@@ -382,8 +383,8 @@ def pull_stocks():
     return out
 
 
-# 兼容旧调用：单票结构
-def pull_stock_601939():
+# 兼容旧调用名
+def pull_stock_primary():
     stocks = pull_stocks()
     if not stocks:
         return {"error": "no stocks in portfolio"}
@@ -391,6 +392,9 @@ def pull_stock_601939():
     d = dict(stocks[code])
     d["_code"] = code
     return d
+
+
+pull_stock_601939 = pull_stock_primary  # backward-compatible alias
 
 # ============================================================
 # 5. 外部变量
@@ -506,19 +510,20 @@ def check_triggers(etf_data, stock_data, market_data, flow_data, external):
             })
 
     # --- 观察型：净值回到成本上方 ---
-    for code in [c for c in ETF_CODES if ETF_TYPE.get(c) == "观察"]:
-        d = etf_data.get(code, {})
-        if "error" in d:
-            continue
-        cost = COST_NAV.get(code, 0)
-        current = d.get("单位净值", 0)
-        if current > cost and cost > 0:
-            triggers.append({
-                "level": "📊 信息",
-                "标的": f"{ETF_NAMES.get(code, code)}({code})",
-                "触发": f"净值{current} > 成本净值{cost}，触发重新评估",
-                "动作": "请重新评估该观察仓位",
-            })
+    if OBSERVE_OVER_COST:
+        for code in [c for c in ETF_CODES if ETF_TYPE.get(c) == "观察"]:
+            d = etf_data.get(code, {})
+            if "error" in d:
+                continue
+            cost = COST_NAV.get(code, 0)
+            current = d.get("单位净值", 0)
+            if current > cost and cost > 0:
+                triggers.append({
+                    "level": "📊 信息",
+                    "标的": f"{ETF_NAMES.get(code, code)}({code})",
+                    "触发": f"净值{current} > 成本净值{cost}，触发重新评估",
+                    "动作": "请重新评估该观察仓位",
+                })
 
     # --- 成交额预警（仅实时可靠来源；全日阈值只在尾盘/收盘后用）---
     if market_data.get("成交额来源") == "realtime":
@@ -554,6 +559,15 @@ def check_triggers(etf_data, stock_data, market_data, flow_data, external):
 # ============================================================
 # 7. 格式化报告
 # ============================================================
+def _fmt_pct(val, width=7):
+    if val is None:
+        return f"{'--':>{width}}"
+    try:
+        return f"{float(val):>+{width}.2f}"
+    except (TypeError, ValueError):
+        return f"{'--':>{width}}"
+
+
 def format_report(market, etf_data, flow_data, stock_data, external, alerts, triggers):
     today_str = str(date.today())
     lines = []
@@ -565,14 +579,16 @@ def format_report(market, etf_data, flow_data, stock_data, external, alerts, tri
     sh = market.get('上证指数', {})
     kc = market.get('科创50', {})
     sz = market.get('深证成指', {})
-    if 'error' not in sh:
+    if 'error' not in sh and sh.get('收盘') is not None:
         amt = sh.get('成交额_亿', sh.get('估算成交额_亿', 0)) or 0
-        lines.append(f"  上证: {sh['收盘']} ({sh['涨跌幅']:+.2f}%) | 成交 {amt:.0f}亿")
-    if 'error' not in kc:
-        lines.append(f"  科创50: {kc['收盘']} ({kc['涨跌幅']:+.2f}%)")
-    if 'error' not in sz:
+        lines.append(f"  上证: {sh['收盘']} ({sh.get('涨跌幅', 0):+.2f}%) | 成交 {amt:.0f}亿")
+    elif sh.get('error'):
+        lines.append(f"  上证: -- ({sh.get('error')})")
+    if 'error' not in kc and kc.get('收盘') is not None:
+        lines.append(f"  科创50: {kc['收盘']} ({kc.get('涨跌幅', 0):+.2f}%)")
+    if 'error' not in sz and sz.get('收盘') is not None:
         amt = sz.get('成交额_亿', sz.get('估算成交额_亿', 0)) or 0
-        lines.append(f"  深证: {sz['收盘']} ({sz['涨跌幅']:+.2f}%) | 成交 {amt:.0f}亿")
+        lines.append(f"  深证: {sz['收盘']} ({sz.get('涨跌幅', 0):+.2f}%) | 成交 {amt:.0f}亿")
     src = market.get("成交额来源", "unknown")
     lines.append(
         f"  两市成交额: {market.get('全市场估算成交额_万亿', 'N/A')}万亿 "
@@ -586,31 +602,32 @@ def format_report(market, etf_data, flow_data, stock_data, external, alerts, tri
 
     for code in list(ETF_CODES):
         d = etf_data.get(code, {})
+        name = ETF_NAMES.get(code, code)
         if 'error' in d:
-            lines.append(f"  {ETF_NAMES[code]:<16} ⚠️ 数据获取失败")
+            lines.append(f"  {name:<16} ⚠️ 数据获取失败")
             continue
         # 信号判断
         signals = []
-        if d.get('偏离MA5_pct', 0) > 5:
+        if (d.get('偏离MA5_pct') or 0) > 5:
             signals.append('超5MA')
-        if d.get('偏离MA5_pct', 0) < -3:
+        if (d.get('偏离MA5_pct') or 0) < -3:
             signals.append('破5MA')
-        if d.get('偏离MA20_pct', 0) < 0:
+        if (d.get('偏离MA20_pct') or 0) < 0:
             signals.append('破20MA')
-        if d.get('距峰值回撤_pct', 0) > 10:
+        if (d.get('距峰值回撤_pct') or 0) > 10:
             signals.append('⚠️深回撤')
         sig_str = ','.join(signals) if signals else '✅'
 
         cost_pnl = f"{d.get('成本盈亏_pct', 0):+.1f}%" if d.get('成本盈亏_pct') is not None else 'N/A'
 
         if not d.get('名称') and not d.get('单位净值'):
-            lines.append(f"  {ETF_NAMES.get(code, code):<16} ⚠️ 数据不完整")
+            lines.append(f"  {name:<16} ⚠️ 数据不完整")
             continue
         lines.append(
-            f"  {d.get('名称', ETF_NAMES.get(code, code)):<16} {d.get('单位净值', 0):>7.4f} {d.get('日涨跌幅', 0):>+6.2f}% "
-            f"{d.get('偏离MA5_pct', 0):>+7.2f}% {d.get('偏离MA20_pct', 0):>+7.2f}% "
-            f"{d.get('偏离MA120_pct', 0):>+7.2f}% "
-            f"{d.get('距峰值回撤_pct', 0):>+7.1f}% {cost_pnl:>8} {sig_str:<10}"
+            f"  {d.get('名称', name):<16} {d.get('单位净值', 0):>7.4f} {d.get('日涨跌幅', 0):>+6.2f}% "
+            f"{_fmt_pct(d.get('偏离MA5_pct'))}% {_fmt_pct(d.get('偏离MA20_pct'))}% "
+            f"{_fmt_pct(d.get('偏离MA120_pct'))}% "
+            f"{_fmt_pct(d.get('距峰值回撤_pct'), 7)}% {cost_pnl:>8} {sig_str:<10}"
         )
 
     # 个股
@@ -745,7 +762,7 @@ def main():
     print("  ✅ ETF净值", file=sys.stderr)
 
     flow_data = pull_fund_flow()
-    print("  ✅ 资金流向", file=sys.stderr)
+    print("  ✅ 折溢价/净值", file=sys.stderr)
 
     stock_data = pull_stocks()
     print(f"  ✅ 个股 {list(stock_data.keys()) or '无'}", file=sys.stderr)

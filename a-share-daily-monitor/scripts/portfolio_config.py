@@ -12,6 +12,7 @@ _EXAMPLE = _ASSETS / "portfolio.example.json"
 _DEFAULT_SETTINGS = {
     "example_mode": False,
     "enable_hard_sell_alerts": True,
+    "enable_observe_over_cost_alert": True,
     "drawdown_watch_pct": 8.0,
     "drawdown_alert_pct": 15.0,
     "volume_cold_trillion": 1.5,
@@ -61,5 +62,6 @@ def load_portfolio() -> dict:
         "stock_cost": {c: float(v["cost"]) for c, v in stocks.items() if "cost" in v},
         "stock_sina": stock_sina,
         "stock_meta": stock_meta,
+        "watchlist": data.get("watchlist") or {},
         "sina_map": sina_map,
     }

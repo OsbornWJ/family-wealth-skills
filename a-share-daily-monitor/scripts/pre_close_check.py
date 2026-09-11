@@ -25,6 +25,7 @@ STOCK_SINA = _PF["stock_sina"]
 STOCK_META = _PF["stock_meta"]
 SETTINGS = _PF["settings"]
 HARD_SELL = bool(SETTINGS.get("enable_hard_sell_alerts", True))
+OBSERVE_OVER_COST = bool(SETTINGS.get("enable_observe_over_cost_alert", True))
 print(f"[portfolio] loaded {_PF['path']} (example={_PF['is_example']})", flush=True)
 
 SINA_HEADERS = {'Referer': 'https://finance.sina.com.cn'}
@@ -152,19 +153,20 @@ def check_alerts(etf_quotes, stock_quote, index_data):
                 })
 
     # --- 观察型：现价回到成本上方 ---
-    for code in [c for c in ETF_SINA_MAP if ETF_TYPE.get(c) == "观察"]:
-        q = etf_quotes.get(code) or {}
-        if "error" in q:
-            continue
-        price = q.get("现价", 0)
-        cost = COST_PRICE.get(code, 0)
-        if price > cost and cost > 0:
-            alerts.append({
-                "level": "📊",
-                "标的": f"{ETF_NAMES.get(code, code)}({code})",
-                "内容": f"现价{price} > 成本{cost}，触发重新评估",
-                "动作": "收盘后请重新评估该观察仓位",
-            })
+    if OBSERVE_OVER_COST:
+        for code in [c for c in ETF_SINA_MAP if ETF_TYPE.get(c) == "观察"]:
+            q = etf_quotes.get(code) or {}
+            if "error" in q:
+                continue
+            price = q.get("现价", 0)
+            cost = COST_PRICE.get(code, 0)
+            if price > cost and cost > 0:
+                alerts.append({
+                    "level": "📊",
+                    "标的": f"{ETF_NAMES.get(code, code)}({code})",
+                    "内容": f"现价{price} > 成本{cost}，触发重新评估",
+                    "动作": "收盘后请重新评估该观察仓位",
+                })
 
     # --- 个股股息率 ---
     if stock_quote and not stock_quote.get("error"):

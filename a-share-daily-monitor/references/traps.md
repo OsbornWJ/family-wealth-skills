@@ -429,7 +429,13 @@ real_cost = current_price / (1 + real_pnl / 100)
     - 记录新仓位不混入原仓成本
     - 跟踪该仓位是否按预期反弹——如果不反弹反而继续下跌，在止损线触发时提醒
     
-    **核心区别：**\n    - 场景D加仓 = 旧仓浮盈厚、回调到技术支撑、均线系统向上\n    - 博前低 = 旧仓浮亏深、下跌趋势中、靠前低支撑赌反弹\n\n37. **⚡ base64编码密码绕过脱敏引擎** — Hermes安全引擎会在文件系统写入时扫描并替换 `EMAIL_PASSWORD=` 这类明文密码为 `***`。解决方式：将密码先做base64编码写在脚本中，engine不会识别base64字符串为密码。\n\n   ```python\n   import base64\n   password = base64.b64decode('WUFqS0NyOUpIeDdWV1czRw==').decode()\n   ```\n   不要将密码放在 `.env` 文件或外部文件中——这两种方式都会被脱敏。\n\n38. **脚本硬编码成本 vs memory 成本的双轨脱节** — 三个 cron 脚本（`morning_check.py`、`pre_close_check.py`、`daily_monitor.py`）各自维护独立的 `COST_PRICE` / `STOCK_COST` 字典。而 memory 中也存了一份成本。当用户止盈/加仓后更新 memory，脚本里的成本仍然是旧值。\n\n    **2026-06-03 教训：** morning_check.py 中 AI ETF 成本为 0.5150（memory 中是 0.5138），芯片 ETF 为 0.4350（memory 中是 0.4527）。差异虽然小（每笔~0.001~0.018元），但浮盈计算偏差可达 1~4%，影响止盈/止损判断的精确性。\n\n    **同步流程（每次成本变更后执行）：**\n    1. 更新 memory 中的 `COST_NAV` 记录\n    2. 更新 skill 目录的脚本：`~/skills/data-science/a-share-daily-monitor/scripts/*.py`\n    3. 复制到 cron 执行目录：`cp ~/skills/data-science/a-share-daily-monitor/scripts/*.py ~/.hermes/profiles/stunner/scripts/`\n    4. 验证：`python3 ~/.hermes/profiles/stunner/scripts/morning_check.py` 确认浮盈计算正确\n\n    **注意：** script 的 `COST_PRICE` 用 float，memory 用 Decimal。2026-06-03 验证确认 float(0.5138) 与 Decimal('0.5138') 在日涨跌幅计算中的误差可忽略 (<0.01%)。但如果后续使用加权平均成本等精密计算，应统一使用 Decimal。
+    **核心区别：**
+    - 场景D加仓 = 旧仓浮盈厚、回调到技术支撑、均线系统向上
+    - 博前低 = 旧仓浮亏深、下跌趋势中、靠前低支撑赌反弹
+
+37. **⚡ 邮件密码不要写进公开仓库** — 曾有人用 base64 把 SMTP 密码「藏」在脚本里绕过脱敏扫描，但公开仓库里 base64 **仍可解码**。正确做法：只用环境变量（`SMTP_PASSWORD` 等），见 `scripts/email_wrapper.py`；泄露后立刻作废邮箱应用密码。
+
+38. **脚本硬编码成本 vs 真实成本脱节** — 三个 cron 脚本应统一从 `portfolio.local.json` 读成本；不要在多个 `.py` 里各维护一份字典。改仓后只改 JSON，并跑一遍 morning/pre_close 确认浮盈。
 
 39. **⚡ Cron 投递 deliver 目标格式验证陷阱** — 设置 cron 的 deliver 字段时，目标标识符必须匹配 `send_message(action='list')` 返回的注册平台目标，不能使用任意邮箱地址或猜测的格式。
 

@@ -22,6 +22,12 @@ FORBIDDEN_CONTENT = re.compile(
     re.I,
 )
 
+# Embedded secrets / anti-patterns in published tree
+EMBEDDED_SECRET = re.compile(
+    r"b64decode\(\s*['\"][A-Za-z0-9+/=]{16,}['\"]\s*\)|SMTP_PASSWORD\s*=\s*['\"][^'\"]+['\"]",
+)
+MISLEADING_FUND_FLOW = re.compile(r"三、主力资金信号")
+
 # Real-looking cost literals that should not appear as hardcoded dicts in scripts
 HARDCODED_COST = re.compile(
     r"COST_PRICE\s*=\s*\{[^}]*0\.\d{3,}",
@@ -79,6 +85,16 @@ def main() -> int:
         if FORBIDDEN_CONTENT.search(text) and "PRIVACY" not in p.name and "ci_check" not in p.name:
             errors.append(f"forbidden content pattern in {rel}")
 
+        if EMBEDDED_SECRET.search(text):
+            errors.append(f"possible embedded secret in {rel}")
+
+        # historical notes may mention the old title; forbid as live section header only in templates/scripts
+        if MISLEADING_FUND_FLOW.search(text) and p.suffix in {".py", ".md"}:
+            if "output-formats.md" in rel or p.suffix == ".py":
+                errors.append(f"outdated section title 主力资金信号 in {rel}")
+            if rel.endswith("scenario-monitor-2026-09-10.zh.md") and "三、主力资金信号\n  ⚠️" in text:
+                errors.append(f"stale fund-flow failure sample still primary in {rel}")
+
         if p.suffix == ".py" and "portfolio_config" not in p.name:
             if HARDCODED_COST.search(text) and "example" not in text.lower():
                 # allow if loads from portfolio_config nearby
@@ -128,8 +144,44 @@ def main() -> int:
             errors.append("example portfolio should set is_example=True in CI")
         if pf.get("settings", {}).get("enable_hard_sell_alerts") is not False:
             errors.append("example pack should disable hard sell alerts by default")
+        if pf.get("settings", {}).get("enable_observe_over_cost_alert") is not False:
+            errors.append("example pack should disable observe-over-cost alerts by default")
         if "stock_meta" not in pf:
             errors.append("load_portfolio missing stock_meta")
+
+        # format_report must tolerate None MA fields
+        import daily_monitor as dm  # type: ignore
+
+        etf = {
+            c: {
+                "名称": pf["etf_names"].get(c, c),
+                "单位净值": 1.0,
+                "日涨跌幅": 0.0,
+                "偏离MA5_pct": 0.0,
+                "偏离MA20_pct": 0.0,
+                "偏离MA120_pct": None,
+                "距峰值回撤_pct": 0.0,
+                "成本盈亏_pct": 0.0,
+            }
+            for c in pf["cost_price"]
+        }
+        try:
+            dm.format_report(
+                {
+                    "上证指数": {"error": "skip"},
+                    "成交额来源": "none",
+                    "全市场估算成交额_万亿": 0,
+                    "成交额达标": "",
+                },
+                etf,
+                {},
+                {},
+                {"error": "skip"},
+                [],
+                [],
+            )
+        except Exception as e:
+            errors.append(f"format_report None-MA crash: {e}")
     except Exception as e:
         errors.append(f"portfolio_config import failed: {e}")
 
