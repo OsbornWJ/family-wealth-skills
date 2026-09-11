@@ -206,36 +206,111 @@ def pull_etf_data():
 
 
 # ============================================================
-# 3. ETF 资金流向
+# 3. ETF 折溢价（免费源；不是券商「主力净流入」）
 # ============================================================
+def _safe_float(x, default=None):
+    try:
+        if x is None:
+            return default
+        if isinstance(x, float) and (x != x):  # NaN
+            return default
+        s = str(x).strip().replace("%", "").replace(",", "")
+        if s in ("", "None", "nan", "NaN", "--", "None"):
+            return default
+        return float(s)
+    except Exception:
+        return default
+
+
 def pull_fund_flow():
-    """拉取ETF资金流数据"""
-    results = {}
+    """
+    拉取 ETF 市价 vs 净值的折溢价。
+    数据源: 东方财富 fund_etf_fund_daily_em（免费、偶发超时）。
+    注意: 这不是北向/主力资金净流入；免费公开源通常拿不到可靠「主力净流入」。
+    """
+    import re
+
+    results = {"_kind": "premium"}
     try:
         df = ak.fund_etf_fund_daily_em()
-        today_str = str(date.today())
-        yesterday_str = str(date.today() - timedelta(days=1))
-
-        for code in ETF_CODES:
-            row = df[df['基金代码'] == code]
-            if row.empty:
-                results[code] = {'error': '未找到'}
-                continue
-
-            r = row.iloc[0]
-            # 提取今日和昨日净值
-            nav_today_key = f'{today_str}-单位净值'
-            nav_yday_key = f'{yesterday_str}-单位净值'
-
-            results[code] = {
-                '今日市价': float(r.get('市价', 0)),
-                '今日NAV': float(r.get(nav_today_key, r.get(f'{yesterday_str}-单位净值', 0))),
-                '昨日NAV': float(r.get(nav_yday_key, 0)),
-                '折溢价率': str(r.get('折价率', 'N/A')),
-            }
     except Exception as e:
-        results['_error'] = str(e)[:100]
+        results["_error"] = f"东方财富ETF日报不可用: {str(e)[:80]}"
+        return _enrich_flow_with_realtime(results)
 
+    nav_cols = [
+        c for c in df.columns if re.search(r"\d{4}-\d{2}-\d{2}-单位净值$", str(c))
+    ]
+    dates = sorted({str(c)[:10] for c in nav_cols})
+    if not dates:
+        results["_error"] = "东方财富返回无净值列"
+        return _enrich_flow_with_realtime(results)
+
+    d_latest = dates[-1]
+    d_prev = dates[-2] if len(dates) > 1 else dates[-1]
+    results["_nav_date"] = d_latest
+    code_col = "基金代码" if "基金代码" in df.columns else df.columns[0]
+
+    for code in ETF_CODES:
+        row = df[df[code_col].astype(str).str.zfill(6) == str(code).zfill(6)]
+        if row.empty:
+            results[code] = {"error": "未找到"}
+            continue
+        r = row.iloc[0]
+        nav = _safe_float(r.get(f"{d_latest}-单位净值"))
+        nav_prev = _safe_float(r.get(f"{d_prev}-单位净值"))
+        px = _safe_float(r.get("市价"))
+        prem = r.get("折价率", None)
+        prem_s = str(prem).strip() if prem is not None else None
+        if (prem_s in (None, "", "nan", "None", "--")) and px and nav and nav > 0:
+            prem_s = f"{(px / nav - 1) * 100:.2f}%"
+        results[code] = {
+            "今日市价": px,
+            "今日NAV": nav,
+            "昨日NAV": nav_prev,
+            "折溢价率": prem_s or "N/A",
+            "净值日期": d_latest,
+        }
+
+    # 若市价为空，用实时行情补
+    return _enrich_flow_with_realtime(results)
+
+
+def _enrich_flow_with_realtime(results: dict) -> dict:
+    """用实时价补全市价 / 估算折溢价。"""
+    if get_realtime is None or not ETF_CODES:
+        return results
+    try:
+        sina_codes = [_PF["sina_map"].get(c, "sh" + c) for c in ETF_CODES]
+        batch = get_realtime(sina_codes)
+    except Exception as e:
+        if "_error" not in results:
+            results["_rt_note"] = f"实时补全失败: {str(e)[:60]}"
+        return results
+
+    filled = 0
+    for code in ETF_CODES:
+        sina = _PF["sina_map"].get(code, "sh" + code)
+        q = batch.get(sina) or batch.get(code) or {}
+        px = _safe_float(q.get("现价"))
+        if not px:
+            continue
+        cur = dict(results.get(code) or {})
+        if cur.get("error") == "未找到" and not cur.get("今日NAV"):
+            # still show price-only row
+            pass
+        cur.pop("error", None)
+        cur["今日市价"] = px
+        nav = _safe_float(cur.get("今日NAV"))
+        if nav and nav > 0:
+            cur["折溢价率"] = f"{(px / nav - 1) * 100:.2f}%"
+        elif not cur.get("折溢价率"):
+            cur["折溢价率"] = "缺净值"
+        results[code] = cur
+        filled += 1
+
+    if filled and results.get("_error"):
+        results["_partial"] = True
+        results["_error_detail"] = results.pop("_error")
     return results
 
 
@@ -544,19 +619,39 @@ def format_report(market, etf_data, flow_data, stock_data, external, alerts, tri
                 f"{pnl_s:>8} {'🏦':>4}"
             )
 
-    # 三、资金信号
-    lines.append("\n三、主力资金信号")
-    if flow_data and '_error' not in flow_data:
+    # 三、折溢价（免费源；非主力净流入）
+    lines.append("\n三、折溢价对照（市价 vs 净值）")
+    nav_date = (flow_data or {}).get("_nav_date")
+    if nav_date:
+        lines.append(f"  净值日期: {nav_date}")
+    if (flow_data or {}).get("_error_detail"):
+        lines.append(f"  ⚠ 主源曾失败，已尽量用实时价补全: {flow_data['_error_detail'][:60]}")
+    rows = 0
+    if flow_data and not (
+        flow_data.get("_error") and not any(
+            isinstance(flow_data.get(c), dict) and flow_data[c].get("今日市价")
+            for c in ETF_CODES
+        )
+    ):
         for code in ETF_CODES:
-            f = flow_data.get(code, {})
-            if 'error' in f:
+            f = flow_data.get(code) or {}
+            if not isinstance(f, dict) or f.get("error") and not f.get("今日市价"):
                 continue
+            px = f.get("今日市价")
+            nav = f.get("今日NAV")
+            if px is None and nav is None:
+                continue
+            px_s = f"{px:.4f}" if isinstance(px, (int, float)) else "--"
+            nav_s = f"{nav:.4f}" if isinstance(nav, (int, float)) else "--"
             lines.append(
-                f"  {ETF_NAMES[code]:<16} 市价:{f.get('今日市价', 0):.4f}  "
-                f"NAV:{f.get('今日NAV', 0):.4f}  折溢价:{f.get('折溢价率', 'N/A')}"
+                f"  {ETF_NAMES.get(code, code):<16} 市价:{px_s}  "
+                f"NAV:{nav_s}  折溢价:{f.get('折溢价率', 'N/A')}"
             )
-    else:
-        lines.append("  ⚠️ 资金流数据暂不可用")
+            rows += 1
+    if rows == 0:
+        err = (flow_data or {}).get("_error") or (flow_data or {}).get("_error_detail") or "未知"
+        lines.append(f"  ⚠️ 折溢价暂不可用（{err}）")
+        lines.append("  说明: 免费源提供的是市价相对净值的折溢价，不是券商「主力净流入」。")
 
     # 四、触发警报
     lines.append("\n四、触发条件检查")
