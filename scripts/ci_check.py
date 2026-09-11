@@ -88,9 +88,10 @@ def main() -> int:
         if EMBEDDED_SECRET.search(text):
             errors.append(f"possible embedded secret in {rel}")
 
-            if rel.endswith("output-formats.md") or p.suffix == ".py":
-                if MISLEADING_FUND_FLOW.search(text):
-                    errors.append(f"outdated section title 主力资金信号 in {rel}")
+        if MISLEADING_FUND_FLOW.search(text) and (
+            rel.endswith("output-formats.md") or p.suffix == ".py"
+        ):
+            errors.append(f"outdated section title 主力资金信号 in {rel}")
 
         if p.suffix == ".py" and "portfolio_config" not in p.name:
             if HARDCODED_COST.search(text) and "example" not in text.lower():

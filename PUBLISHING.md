@@ -9,7 +9,8 @@ Publish **only** the `public/` tree as the GitHub root (or rsync it to a public 
 | [README.md](README.md) | Bilingual landing + scope |
 | [docs/USAGE.zh.md](docs/USAGE.zh.md) | 中文使用说明 |
 | [docs/USAGE.en.md](docs/USAGE.en.md) | Short English usage |
-| [examples/demo-conversation.zh.md](examples/demo-conversation.zh.md) | Fictional IPS walkthrough |
+| [examples/demo-conversation.zh.md](examples/demo-conversation.zh.md) | IPS walkthrough + link to live run |
+| [examples/scenario-monitor-2026-09-11.zh.md](examples/scenario-monitor-2026-09-11.zh.md) | Real morning/pre-close/daily capture |
 | [PRIVACY.md](PRIVACY.md) | What not to commit |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | PR rules |
 
