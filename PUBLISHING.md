@@ -13,6 +13,7 @@ Publish **only** the `public/` tree as the GitHub root (or rsync it to a public 
 | [examples/scenario-monitor-2026-09-11.zh.md](examples/scenario-monitor-2026-09-11.zh.md) | Real morning/pre-close/daily capture |
 | [PRIVACY.md](PRIVACY.md) | What not to commit |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | PR rules |
+| [marketing/](marketing/) | Reddit / 掘金 / 公众号推广文案与配图（可选发布） |
 
 ## Before every publish
 
