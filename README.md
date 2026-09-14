@@ -50,7 +50,7 @@ pip3 install requests pandas akshare baostock
 > 按 family-wealth-ips，先问清楚能不能买
 
 有空再改 `~/.family-wealth-skills/**/assets/*.local.*` 里的真实数字。  
-怎么聊、怎么跑监控：[使用说明](docs/USAGE.zh.md) · [演示对话](examples/demo-conversation.zh.md) · [实跑样例](examples/scenario-monitor-2026-09-11.zh.md)
+怎么聊、怎么跑监控：[使用说明](docs/USAGE.zh.md) · [演示对话](examples/demo-conversation.zh.md) · [实跑样例](examples/scenario-monitor-2026-09-11.zh.md) · [发文稿](marketing/)
 
 ---
 
