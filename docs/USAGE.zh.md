@@ -1,105 +1,96 @@
-# 使用说明（中文）
+# 使用说明
 
-面向：把本仓库当作 **Agent Skill 包** 使用的个人投资者（中国 A 股为主）。
+给谁看：自己管钱、主要玩 **A 股**，又想让 Agent 帮着盯纪律的人。
 
-**产品边界：** 本仓库是 Agent 流程与脚本，**不提供 Web 看板 / HTML 仪表盘**。家底、「能不能买」结论、持仓盈亏请在对话里用 Markdown 表查看；或自行用 `*.local.*` 对接其它工具。
+这不是网页看板。家底、能不能买、盈亏，都在对话里用表格看。嫌麻烦？那正好——装完就能聊。
 
-## 1. 环境要求
+文风参考过我写过的一篇流水账：[来自 2022 的总结，拖延症害死人](https://juejin.cn/post/7208050893055787063)——能白话就白话，能一条命令就不整七步流程。
 
-- Python 3.9+（推荐 3.10+）
-- 网络（访问腾讯 / 新浪等公开行情；无需 API Key）
-- 支持 AgentSkills 的客户端之一：
-  - [Cursor](https://cursor.com)（`~/.cursor/skills`）
-  - Claude Code（`~/.claude/skills`）
-  - Hermes / OpenClaw（把各 skill 目录链到其 skills 根目录）
+---
 
-依赖安装：
+## 你需要啥
+
+- Python 3.9+（3.10 更香）
+- 能上网（腾讯/新浪公开行情，**不用 API Key**）
+- Cursor / Claude Code / Hermes / OpenClaw 这类能挂 Skill 的客户端
+
+行情脚本依赖（用到再装）：
 
 ```bash
 pip3 install requests pandas akshare baostock
-# 可选：通达信 TCP
+# 可选
 pip3 install mootdx
 ```
 
-## 2. 安装 / 重置 / 卸载（推荐：一条命令）
+---
+
+## 装 / 重置 / 卸：各一条
 
 ```bash
-# 安装 → ~/.family-wealth-skills，并链到 Cursor / Claude
 curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/install.sh | bash
-
-# 重置本地数字（自动备份到 ~/.family-wealth-skills-backup-时间戳）
 curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/reset-local.sh | bash
-
-# 整包卸载
 curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/uninstall.sh | bash
 ```
 
-安装脚本会：克隆/更新、自动 symlink、若还没有 local 则从 example 复制（不覆盖已有）。  
-重置 / 卸载时输入 `yes` 确认；或加 `FAMILY_WEALTH_YES=1` 跳过提问。
+装完会放到 `~/.family-wealth-skills`，并链到 Cursor / Claude。  
+第一次会从 example 拷一份 local（已有的不覆盖）。  
+重置会自动备份；卸载会把目录和链接一起清掉。  
+确认时输入 `yes`；或 `FAMILY_WEALTH_YES=1` 直接过。
 
-**新开一轮对话** 后再用（多数运行时只在会话开始时加载 skill）。
+**重要：** 装完请 **新开一轮对话**，否则旧会话可能还找不到 skill。
 
-### 手动安装（可选）
+自己 `git clone` 也行，但不如上面那条省事。Hermes / OpenClaw 把各 skill 目录链到它们的 skills 根就行。
 
-若你更想自己 clone：
+---
 
-```bash
-git clone https://github.com/OsbornWJ/family-wealth-skills.git ~/.family-wealth-skills
-# 然后对每个含 SKILL.md 的目录 ln -sfn 到 ~/.cursor/skills 与 ~/.claude/skills
-# 或再次运行上面的 install.sh
-```
+## 本地数字（有空再填）
 
-Hermes / OpenClaw：把 `~/.family-wealth-skills` 下各 skill 目录链到对应 skills 根即可。
+| 文件 | 填啥 |
+|------|------|
+| `.../family-wealth-ips/assets/ips.local.md` | 月支出、钱池、配比 |
+| `.../personal-financial-tracker/assets/balance-sheet.local.md` | 家底粗表 |
+| `.../a-share-daily-monitor/assets/portfolio.local.json` | 持仓、成本、峰值 |
 
-## 3. 本地配置（可后补）
+路径前缀都是 `~/.family-wealth-skills/`。
 
-安装脚本已生成空白/示例 `*.local.*`。有空再改真实数字即可（**不要推到公开仓库**）：
+示例组合默认关掉「必须减仓」硬警报，免得演示数据天天吓人。你自己实盘可以把 `enable_hard_sell_alerts` 打开。  
+股息阈值写在 JSON 里（`annual_div` 那些），别直接抄别人的数。
 
-| 文件 | 填什么 |
-|------|--------|
-| `~/.family-wealth-skills/family-wealth-ips/assets/ips.local.md` | 月支出、钱池、目标配比 |
-| `.../personal-financial-tracker/assets/balance-sheet.local.md` | 资产负债粗表 |
-| `.../a-share-daily-monitor/assets/portfolio.local.json` | 监控标的、成本/峰值、股息假设 |
+监控脚本：有 `portfolio.local.json` 就用它，没有就用 example。
 
-复制 `portfolio.example.json` 为 `portfolio.local.json` 后改真实数字。`settings.enable_hard_sell_alerts` 在 example 中默认关闭，避免演示组合误报「必须减仓」；本地实盘可设为 `true`。个股股息告警用 `annual_div` / `min_yield_pct` / `alert_on_low_yield`，勿把别人的阈值当自己的。
+---
 
-监控脚本优先读 `portfolio.local.json`，没有则用 example。
+## 怎么跟 Agent 说话
 
-## 4. 推荐对话顺序（先问清 → 再执行）
+别一上来：「帮我看看 515980 加不加。」
 
-1. **能不能买** — 「按 family-wealth-ips：这是哪笔钱？应急金够吗？股票会不会买太多？」
-2. **家底** — 「根据家底表算净资产和股票类大概占多少」
-3. **再分派**  
-   - 家里保本 / 停靠 → `a-share-bond-allocation`  
+建议顺序：
+
+1. **能不能买** — 「按 family-wealth-ips：这是哪笔钱？应急金够吗？股票会不会买太多？」  
+2. **家底** — 「根据家底表，净资产和股票类大概占多少」  
+3. **再干活**  
+   - 保本 / 停靠 → `a-share-bond-allocation`  
    - 收息 → `a-share-dividend-allocation`  
-   - 盘中买卖 / 日报 → `a-share-daily-monitor`  
-   - 个股研究 → comps / dcf / earnings  
+   - 盯盘 → `a-share-daily-monitor`  
+   - 研究个股 → comps / dcf / earnings  
 
-Agent 输出里应出现白话一行：`能不能买: 可以 / 先少买点 / 先别买`。「先别买」时不要给下单指令。
+Agent 最好甩你一行白话：`能不能买: 可以 / 先少买点 / 先别买`。  
+写了「先别买」就别再给下单清单——那叫装瞎。
 
-虚构完整对话：[examples/demo-conversation.zh.md](../examples/demo-conversation.zh.md)  
-**真实脚本实跑**（2026-09-11 示例组合）：[examples/scenario-monitor-2026-09-11.zh.md](../examples/scenario-monitor-2026-09-11.zh.md)
+示例：[演示对话](../examples/demo-conversation.zh.md) · [2026-09-11 实跑](../examples/scenario-monitor-2026-09-11.zh.md)
 
-重新抓取报告（会写到 `examples/_raw/`，勿提交含本机路径的原文）：
+---
 
-```bash
-bash scripts/capture_example_run.sh
-```
-
-## 5. 日常监控命令
-
-在 `a-share-daily-monitor` 目录下：
+## 日常盯盘
 
 ```bash
-python3 scripts/morning_check.py      # 早盘
-python3 scripts/pre_close_check.py    # 尾盘/盘中触发
-python3 scripts/daily_monitor.py      # 日报
-# 或
-bash scripts/run_morning.sh
+cd ~/.family-wealth-skills/a-share-daily-monitor   # 或仓库里同名目录
+python3 scripts/morning_check.py
+python3 scripts/pre_close_check.py
+python3 scripts/daily_monitor.py
 ```
 
-行情统一走 `akshare-china-finance/scripts/quote_providers.py`：  
-**腾讯 → 新浪 →（可选）mootdx**；日 K：**baostock → … → AKShare 末位**。
+行情链路：腾讯 → 新浪 →（可选）mootdx。东财挂了属正常现象，换网或等会儿再试。
 
 冒烟：
 
@@ -107,30 +98,27 @@ bash scripts/run_morning.sh
 python3 akshare-china-finance/scripts/quote_providers.py
 ```
 
-## 6. 常见问题
+---
 
-**Q: Agent 找不到 skill？**  
-A: 确认 symlink、目录名与 `SKILL.md` 里 `name` 一致；新开会话；Cursor 勿装到 `skills-cursor` 内置目录。
+## 常见坑
 
-**Q: 行情报错 / 空数据？**  
-A: 东财系常挂，属预期。看返回里的 `source=`；换网络或稍后重试。见 `akshare-china-finance/references/data-source-matrix.md`。
+**Agent 找不到 skill？**  
+看 symlink、目录名、`SKILL.md` 的 `name`；新开会话。Cursor 别塞进内置的 `skills-cursor` 目录。
 
-**Q: 能直接用于美股账户吗？**  
-A: IPS/资产负债表可以借鉴；监控与产品 skill **默认只服务 A 股/人民币**。美股需自备数据源，不在本包范围。
+**行情空的？**  
+免费源就是这样。看返回里的 `source=`，别一挂就怀疑人生。
 
-**Q: 「代操作 / 少请示」？**  
-A: 发布版把个人口癖收成可选偏好；**不能**绕过家庭固定资本禁投与 IPS 红灯。
+**能直接管美股吗？**  
+家底、能不能买可以借鉴；监控和产品默认只服务 A 股。美股自己接数据。
 
-**Q: 会不会泄露隐私？**  
-A: 只要不把 `*.local.*` 和券商导出推进公开仓库即可。见 [PRIVACY.md](../PRIVACY.md)。
+**「代操作少请示」？**  
+个人口癖可以有，**绕过家里保本禁投**不行。
 
-## 7. 升级
+**隐私？**  
+别把 `*.local.*` 和券商导出推进公开仓库。见 [PRIVACY.md](../PRIVACY.md)。
 
-```bash
-git pull
-# 若用 symlink，一般无需重装；若脚本有 breaking change，对照 portfolio.example.json 更新 local
-```
+---
 
-## 8. 卸载
+## 升级
 
-删除 `~/.cursor/skills/<name>`、`~/.claude/skills/<name>` 的对应 symlink（不要删错其它 skill）。
+再跑一遍安装命令，或在安装目录 `git pull`。symlink 一般不用动。脚本大改时，对照 `portfolio.example.json` 看看自己的 local 要不要补字段。

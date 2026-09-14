@@ -1,46 +1,34 @@
 # Usage (English)
 
-For investors who primarily use **China A-shares / CNY** and AgentSkills-capable clients.
+For people who mostly trade **China A-shares / CNY** and want an agent that asks about money pools before tickers.
 
-**Scope:** This repo is Agent workflows and scripts — **no Web dashboard / HTML UI**. Ask the agent for Markdown tables (IPS, balance sheet, P&amp;L), or wire your own tools to `*.local.*`.
+No web dashboard—Markdown tables in chat on purpose. Chinese docs are the primary voice; this page stays short.
 
-## Setup
+## Commands
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/install.sh | bash
-curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/reset-local.sh | bash   # reset local numbers
-curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/uninstall.sh | bash    # remove everything
-pip3 install requests pandas akshare baostock   # only if you need quote scripts
+curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/reset-local.sh | bash
+curl -fsSL https://raw.githubusercontent.com/OsbornWJ/family-wealth-skills/main/uninstall.sh | bash
+pip3 install requests pandas akshare baostock   # if you need quotes
 ```
 
-Install clones to `~/.family-wealth-skills` and symlinks into Cursor / Claude Code.  
-Confirm with `yes`, or set `FAMILY_WEALTH_YES=1`. Start a **new** agent session afterward.
+Confirm with `yes`, or set `FAMILY_WEALTH_YES=1`. Start a **new** chat after install.
 
-## How to talk to the agent
+Full Chinese walkthrough (tone + examples): [USAGE.zh.md](USAGE.zh.md).
 
-1. **Ask before buying** (`family-wealth-ips`): which money, emergency cash, is stock too heavy?  
-2. Refresh the **balance sheet** when discussing net worth.  
-3. Then route: bond / dividend / daily-monitor.
+## Talk order
 
-Expect a plain line like `能不能买: 可以 / 先少买点 / 先别买`. “先别买” = no order instructions.
+1. `family-wealth-ips` — which money, emergency cash, stock overweight?  
+2. Balance sheet if needed  
+3. Then bond / dividend / daily-monitor / research skills  
 
+Expect a plain line like `能不能买: 可以 / 先少买点 / 先别买`. If it’s 先别买, no order list.
 
-Fictional walkthrough (Chinese): [examples/demo-conversation.zh.md](../examples/demo-conversation.zh.md).
+Demos: [demo-conversation.zh.md](../examples/demo-conversation.zh.md) · [scenario-monitor-2026-09-11.zh.md](../examples/scenario-monitor-2026-09-11.zh.md)
 
-## Scripts
+## Notes
 
-```bash
-python3 akshare-china-finance/scripts/quote_providers.py
-python3 a-share-daily-monitor/scripts/morning_check.py
-```
-
-Quotes: Tencent → Sina → optional mootdx. No API keys on the default path.
-
-## Audience note
-
-IPS templates are portable. **Execution skills and data sources are China-only.** US/EU brokers need your own data layer.
-
-## More
-
-- [USAGE.zh.md](USAGE.zh.md) — fuller Chinese guide  
-- [PRIVACY.md](../PRIVACY.md) · [CONTRIBUTING.md](../CONTRIBUTING.md)
+- Quotes: Tencent → Sina → optional mootdx. Free sources flake; retry.  
+- Keep `*.local.*` private. See [PRIVACY.md](../PRIVACY.md).  
+- Not investment advice. A-share focused.
