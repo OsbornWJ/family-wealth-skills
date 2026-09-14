@@ -90,7 +90,7 @@ def main() -> int:
 
         if MISLEADING_FUND_FLOW.search(text) and (
             rel.endswith("output-formats.md") or p.suffix == ".py"
-        ):
+        ) and "ci_check.py" not in p.name:
             errors.append(f"outdated section title 主力资金信号 in {rel}")
 
         if p.suffix == ".py" and "portfolio_config" not in p.name:
@@ -120,7 +120,12 @@ def main() -> int:
 
     # skill folders need SKILL.md with name+description
     for d in ROOT.iterdir():
-        if not d.is_dir() or d.name.startswith(".") or d.name in {"docs", "examples", "scripts"}:
+        if not d.is_dir() or d.name.startswith(".") or d.name in {
+            "docs",
+            "examples",
+            "scripts",
+            "marketing",
+        }:
             continue
         skill = d / "SKILL.md"
         if not skill.exists():
